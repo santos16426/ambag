@@ -54,20 +54,11 @@ export async function signInWithGoogle(origin: string) {
   });
 }
 
-/**
- * Loads profile via RPC getProfileById(profileId uuid) -> profiles (rpc.sql).
- * PostgREST schema cache exposes the function as lowercase — use "getprofilebyid"
- * (PGRST202 if you call "getProfileById" with profileid).
- */
 export async function fetchProfile(
   userId: string,
 ): Promise<{ data: Profile | null; error: Error | null }> {
   const supabase = createClient();
 
-  const { data: tempFiles } = await supabase.storage
-  .from("group-images")
-  .list("temp");
-  console.log(tempFiles);
   // Single uuid arg; parameter name in DB is folded to profileid
   const { data, error } = await supabase.rpc("getprofilebyid", {
     profileid: userId,

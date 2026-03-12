@@ -29,7 +29,7 @@ const GroupCard = ({ group }: { group: Group }) => {
     <motion.div
       onClick={() => {
         setActiveGroup(group);
-        router.push(`/dashboard/${group.id}`);
+        // router.push(`/dashboard/${group.id}`);
       }}
       key={group.id}
       whileHover={{ y: -8 }}

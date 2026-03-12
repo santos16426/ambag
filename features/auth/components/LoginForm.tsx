@@ -78,7 +78,7 @@ export function LoginForm({ redirectPath }: LoginFormProps) {
     setServerError("");
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle(process.env.NEXT_PUBLIC_APP_URL ?? "");
+      await signInWithGoogle(window.location.origin);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to sign in with Google.";

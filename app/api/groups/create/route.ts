@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import { sendInviteEmail } from "@/lib/email/resend";
 
 interface CreateGroupRequestBody {
   name: string;
@@ -68,39 +67,6 @@ export async function POST(request: Request) {
     }
 
     const group = payload.group;
-
-    // Send invite emails for pending invites created by the RPC.
-    if ((body.inviteEmails?.length ?? 0) > 0) {
-      const { data: invites, error: invitesError } = await supabase
-        .from("groupInvites")
-        .select("invitedEmail, inviteToken")
-        .eq("groupId", group.id)
-        .eq("status", "pending");
-
-      if (!invitesError && invites) {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_APP_URL ??
-          process.env.NEXT_PUBLIC_VERCEL_URL ??
-          "";
-
-        // Fire-and-forget; failures are non-fatal to group creation.
-        await Promise.all(
-          invites.map((invite) => {
-            const url = new URL(
-              "/invite/accept",
-              baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`,
-            );
-            url.searchParams.set("token", invite.inviteToken);
-
-            return sendInviteEmail({
-              to: invite.invitedEmail ?? "",
-              subject: `You have been invited to join ${group.name}`,
-              react: `You have been invited to join the group ${group.name}. Accept your invite: ${url.toString()}`,
-            });
-          }),
-        );
-      }
-    }
 
     return NextResponse.json(
       {

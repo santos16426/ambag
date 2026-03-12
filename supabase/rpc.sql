@@ -236,7 +236,7 @@ BEGIN
       CONTINUE;
     END IF;
 
-    INSERT INTO public.groupInvites (groupId, invitedBy, invitedUserId, invitedEmail, status, inviteToken)
+    INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
     VALUES (
       v_group_id,
       auth.uid(),

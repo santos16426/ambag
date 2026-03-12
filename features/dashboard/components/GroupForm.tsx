@@ -242,7 +242,7 @@ const GroupForm = ({ isOpen, setIsOpen, onSuccess }: GroupFormProps) => {
             </motion.div>
 
             <h1 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-slate-950 text-center">
-              Fund Created!
+              Group Created!
             </h1>
             <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mb-12">
               Transaction Confirmed
