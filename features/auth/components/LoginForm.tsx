@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
@@ -70,7 +78,7 @@ export function LoginForm({ redirectPath }: LoginFormProps) {
     setServerError("");
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle(window.location.origin);
+      await signInWithGoogle(process.env.NEXT_PUBLIC_APP_URL ?? "");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to sign in with Google.";
