@@ -1014,24 +1014,36 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_invite_id uuid;
+  v_group_id uuid;
 BEGIN
-  SELECT id
-  INTO v_invite_id
+  -- Require an authenticated user; we need a userId to add to groupMembers
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Find the pending invite for this token
+  SELECT groupId
+  INTO v_group_id
   FROM public.groupInvites
   WHERE inviteToken = acceptInviteByToken.inviteToken
     AND status = 'pending'
   LIMIT 1;
 
-  IF v_invite_id IS NULL THEN
+  IF v_group_id IS NULL THEN
     RETURN false;
   END IF;
 
-  UPDATE public.groupInvites
+  -- Upsert membership for the current user into the group
+  INSERT INTO public.groupMembers (groupId, userId, role, status, joinedAt)
+  VALUES (v_group_id, auth.uid(), 'member', 'active', NOW())
+  ON CONFLICT (groupId, userId) DO UPDATE
   SET
-    status = 'accepted',
-    respondedAt = NOW()
-  WHERE id = v_invite_id;
+    status = 'active',
+    removedAt = NULL;
+
+  -- Remove the invite row so the token cannot be reused
+  DELETE FROM public.groupInvites
+  WHERE inviteToken = acceptInviteByToken.inviteToken;
 
   RETURN true;
 END;

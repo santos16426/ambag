@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
 
 interface InviteAcceptPageProps {
@@ -29,6 +31,15 @@ export default async function InviteAcceptPage({
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const redirectTarget = `/invite/accept?token=${encodeURIComponent(token)}`;
+    redirect(`/auth?redirect=${encodeURIComponent(redirectTarget)}`);
+  }
+
   const { data, error } = await supabase.rpc("acceptinvitebytoken", {
     invitetoken: token,
   });
@@ -50,18 +61,7 @@ export default async function InviteAcceptPage({
     );
   }
 
-  return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="max-w-md space-y-4 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Invite accepted
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Your invite has been accepted. You can now sign up or log in with the
-          invited email address to access this group.
-        </p>
-      </div>
-    </main>
-  );
+  redirect("/dashboard");
 }
+
 

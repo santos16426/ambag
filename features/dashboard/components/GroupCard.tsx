@@ -1,6 +1,14 @@
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Users, Check, Copy, CreditCard, UserPlus, Mail } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Users,
+  Check,
+  Copy,
+  CreditCard,
+  UserPlus,
+  Mail,
+  User2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { Group } from "../types";
@@ -21,46 +29,18 @@ const GroupCard = ({ group }: { group: Group }) => {
     setCopyFeedback(code);
     setTimeout(() => setCopyFeedback(null), 2000);
   };
-  const pendingRequests = group.pending_join_requests_count ?? 0;
   const pendingInvites = group.pending_invitations_count ?? 0;
-  const hasPending = pendingRequests > 0 || pendingInvites > 0;
   const router = useRouter();
   return (
     <motion.div
       onClick={() => {
         setActiveGroup(group);
-        // router.push(`/dashboard/${group.id}`);
+        router.push(`/dashboard/${group.id}`);
       }}
       key={group.id}
       whileHover={{ y: -8 }}
       className="relative w-full group cursor-pointer"
     >
-      <AnimatePresence>
-        {activeGroupId === group.id && hasPending && (
-          <motion.div
-            initial={{ y: 0, opacity: 0 }}
-            animate={{ y: -8, opacity: 1 }}
-            className="absolute -top-4 left-6 right-6 z-20 flex gap-2"
-          >
-            {pendingRequests > 0 && (
-              <div className="flex-1 bg-amber-400 text-amber-950 px-3 py-1.5 rounded-t-xl flex items-center justify-center gap-2 shadow-lg border-x border-t border-amber-500/50">
-                <UserPlus className="w-3 h-3" />
-                <span className="text-[10px] font-black uppercase tracking-wider">
-                  {pendingRequests} Request{pendingRequests > 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-            {pendingInvites > 0 && (
-              <div className="flex-1 bg-sky-400 text-sky-950 px-3 py-1.5 rounded-t-xl flex items-center justify-center gap-2 shadow-lg border-x border-t border-sky-500/50">
-                <Mail className="w-3 h-3" />
-                <span className="text-[10px] font-black uppercase tracking-wider">
-                  {pendingInvites} Invite{pendingInvites > 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
       {/* The Credit Card Body */}
       <div className="relative z-21 h-full w-full rounded-[2.5rem] bg-slate-950 overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border border-white/10 flex flex-col justify-between transition-all group-hover:shadow-[0_40px_80px_-15px_rgba(107,33,168,0.25)]">
         {/* Visual Image Layer */}
@@ -111,9 +91,25 @@ const GroupCard = ({ group }: { group: Group }) => {
               {group.name}
             </h2>
             <div className="flex items-center gap-4 mt-2 flex-wrap">
-              <div className="flex items-center gap-1 text-[10px] font-bold text-white/70 capitalize tracking-widest bg-black/20 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
-                <Users className="w-3 h-3" /> {group.member_count} Members
+              <div className="flex items-center gap-2 grow">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-white/70 capitalize tracking-widest bg-black/20 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
+                  <Users className="w-3 h-3" /> {group.member_count} Members
+                </div>
+                <div className="flex items-center -space-x-2">
+                  {[...Array(Math.min(pendingInvites, 3))].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 rounded-full border border-dashed border-amber-500/40 bg-transparent flex items-center justify-center"
+                    >
+                      <User2 className="w-3 h-3 text-amber-400" />
+                    </div>
+                  ))}
+                  <span className="pl-3 text-[10px] font-bold text-amber-500/80">
+                    {pendingInvites} pending
+                  </span>
+                </div>
               </div>
+
               {activeGroupId === group.id && (
                 <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 capitalize tracking-widest">
                   <Check className="w-3 h-3" /> Active
