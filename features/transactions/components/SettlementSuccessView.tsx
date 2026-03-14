@@ -4,7 +4,10 @@ import React, { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Banknote, Check, Coins, User } from "lucide-react";
 import getInitials from "@/lib/get-initials";
-import { FORM_CARD_TRANSITION, SUCCESS_AUTO_CLOSE_SECONDS } from "../constants/forms";
+import {
+  FORM_CARD_TRANSITION,
+  SUCCESS_AUTO_CLOSE_SECONDS,
+} from "../constants/forms";
 
 export interface SettlementSuccessData {
   fromUserId: string;
@@ -171,7 +174,10 @@ export function SettlementSuccessView({
             className="absolute inset-0 bg-emerald-100/20 origin-left"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            transition={{ duration: SUCCESS_AUTO_CLOSE_SECONDS, ease: "linear" }}
+            transition={{
+              duration: SUCCESS_AUTO_CLOSE_SECONDS,
+              ease: "linear",
+            }}
           />
 
           <span className="relative flex items-center gap-3 text-white font-black text-[11px] uppercase tracking-[0.4em]">
