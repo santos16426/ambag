@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 
+import { GROUP_IMAGES_BUCKET } from "@/constants/storage";
 import { createClient } from "@/lib/supabase/client";
 
 import type { Group } from "../types";
@@ -39,17 +40,17 @@ function toGroup(summary: RpcGroup): Group {
     id: summary.id,
     name: summary.name,
     description: summary.description,
-    created_by: summary.createdbyid,
-    invite_code: summary.invitecode,
-    image_url: summary.imageurl ?? null,
-    created_at: summary.createdat,
-    updated_at: summary.createdat,
-    member_count: summary.membercount ?? 0,
-    pending_join_requests_count: summary.pendingjoinrequestcount ?? 0,
-    pending_invitations_count: summary.pendinginvitationcount ?? 0,
-    user_role: (summary.role as "admin" | "member") ?? undefined,
-    total_expenses: summary.totalexpenses ?? 0,
-    total_settlements: summary.totalsettlements ?? 0,
+    createdby: summary.createdbyid,
+    invitecode: summary.invitecode,
+    imageurl: summary.imageurl ?? null,
+    createdat: summary.createdat,
+    updatedat: summary.createdat,
+    membercount: summary.membercount ?? 0,
+    pendingjoinrequestcount: summary.pendingjoinrequestcount ?? 0,
+    pendinginvitationcount: summary.pendinginvitationcount ?? 0,
+    userrole: (summary.role as "admin" | "member") ?? undefined,
+    totalexpenses: summary.totalexpenses ?? 0,
+    totalsettlements: summary.totalsettlements ?? 0,
   };
 }
 
@@ -110,7 +111,7 @@ export const useDashboardGroupsStore = create<DashboardGroupsState>()(
 
       if (imagePaths.length > 0) {
         const { data: signedUrls, error: signedError } = await supabase.storage
-          .from("group-images")
+          .from(GROUP_IMAGES_BUCKET)
           .createSignedUrls(imagePaths, 60 * 60);
 
         if (signedError) {

@@ -4,6 +4,7 @@ import Sidebar from "@/components/common/Sidebar";
 import Header from "@/components/common/Header";
 import { AuthSync } from "@/features/auth/components/AuthSync";
 import AppShell from "@/components/common/AppShell";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
     <div className="flex h-screen">
       <AuthSync />
       <AppShell>
+        <Toaster />
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <Header />

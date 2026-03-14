@@ -2,17 +2,11 @@
 
 import { useState } from "react";
 import { Search, X, Mail, UserPlus, Check } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
-export type MemberInvite = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  isExistingUser: boolean;
-};
+import { searchUserByEmail } from "./search-users.service";
+import type { MemberInvite } from "./types";
 
-interface MemberSearchProps {
+export interface MemberSearchProps {
   selectedMembers: MemberInvite[];
   onAddMember: (member: MemberInvite) => void;
   onRemoveMember: (id: string) => void;
@@ -57,48 +51,8 @@ export function MemberSearch({
     setShowResult(true);
 
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("searchusersbyemail", {
-        emailquery: email,
-      });
-
-      if (error) {
-        setSearchResult(null);
-        setIsSearching(false);
-        return;
-      }
-
-      const payload = (data ?? null) as {
-        users?: Array<{
-          id: string;
-          email: string;
-          fullname: string | null;
-          avatarurl: string | null;
-        }>;
-      } | null;
-
-      const users = payload?.users ?? [];
-      const exact = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase(),
-      );
-
-      if (exact) {
-        setSearchResult({
-          id: exact.id,
-          email: exact.email,
-          full_name: exact.fullname,
-          avatar_url: exact.avatarurl,
-          isExistingUser: true,
-        });
-      } else {
-        setSearchResult({
-          id: `invite-${Date.now()}`,
-          email: email,
-          full_name: null,
-          avatar_url: null,
-          isExistingUser: false,
-        });
-      }
+      const result = await searchUserByEmail(email);
+      setSearchResult(result);
     } catch {
       setSearchResult(null);
     } finally {

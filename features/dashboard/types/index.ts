@@ -10,18 +10,19 @@ export interface Group {
   id: string;
   name: string;
   description: string | null;
-  created_by: string;
-  invite_code: string | null;
-  image_url: string | null;
-  created_at: string;
-  updated_at: string;
-  // Optional aggregated data from getUserGroupsSummary
-  member_count?: number;
-  pending_join_requests_count?: number;
-  pending_invitations_count?: number;
-  user_role?: GroupRole;
-  joined_at?: string;
-  total_expenses?: number;
-  total_settlements?: number;
+  createdby: string;
+  invitecode: string | null;
+  imageurl: string | null;
+  /** Storage path for group cover (for delete); set when imageurl is present. */
+  imagepath?: string | null;
+  createdat: string;
+  updatedat: string;
+  membercount?: number;
+  pendingjoinrequestcount?: number;
+  pendinginvitationcount?: number;
+  userrole?: GroupRole;
+  joinedat?: string;
+  totalexpenses?: number;
+  totalsettlements?: number;
 }
 

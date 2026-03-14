@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   Share2,
 } from "lucide-react";
-import { MemberSearch } from "./MemberSearch";
+import { MemberSearch } from "@/components/common/MemberSearch";
 import { useGroupForm } from "../hooks/useGroupForm";
 
 interface GroupFormProps {

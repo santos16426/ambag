@@ -8,7 +8,7 @@ import {
   groupFormSchema,
   type GroupFormValues,
 } from "../schema/group-form.schema";
-import type { MemberInvite } from "../components/MemberSearch";
+import type { MemberInvite } from "@/components/common/MemberSearch";
 
 interface UseGroupFormProps {
   setIsOpen: (isOpen: boolean) => void;

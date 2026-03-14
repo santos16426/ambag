@@ -174,6 +174,23 @@ $$;
 GRANT EXECUTE ON FUNCTION public.updateGroup(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.getGroupById(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.deleteGroup(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.removeGroupImage(groupId uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NOT public.isGroupMember(groupId) THEN
+    RAISE EXCEPTION 'Not a member of this group';
+  END IF;
+  UPDATE public.groups
+  SET imageurl = NULL
+  WHERE id = groupId;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.removeGroupImage(uuid) TO authenticated;
 -- =====================================================================
 -- CREATE GROUP
 -- =====================================================================
@@ -1612,6 +1629,122 @@ COMMENT ON FUNCTION public.getUserGroupsSummary(uuid) IS
   'Returns all groups for a user with role, memberCount, pendingJoinRequestCount, pendingInvitationCount, totalExpenses, totalSettlements, and createdBy (name, avatar).';
 
 GRANT EXECUTE ON FUNCTION public.getUserGroupsSummary(uuid) TO authenticated;
+
+-- =====================================================================
+-- GROUP DETAILS (single group + combined members list)
+-- =====================================================================
+-- Returns group details and a single members array combining groupmembers
+-- and pending invites, each item with a type indicator: 'member' | 'pending_invite'.
+
+CREATE OR REPLACE FUNCTION public.getGroupDetails(p_group_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_group jsonb;
+  v_members jsonb;
+BEGIN
+  IF NOT public.isGroupMember(p_group_id) THEN
+    RAISE EXCEPTION 'Not a member of this group';
+  END IF;
+
+  -- Single group object (same shape as one item from getUserGroupsSummary).
+  SELECT jsonb_build_object(
+    'id', g.id,
+    'name', g.name,
+    'description', g.description,
+    'invitecode', g.invitecode,
+    'imageurl', g.imageurl,
+    'createdat', g.createdat,
+    'archivedat', g.archivedat,
+    'createdbyid', g.createdby,
+    'membercount', stats.member_count,
+    'pendingjoinrequestcount', stats.pending_join_count,
+    'pendinginvitationcount', stats.pending_invite_count,
+    'totalexpenses', stats.total_expenses,
+    'totalsettlements', stats.total_settlements,
+    'createdby', jsonb_build_object(
+      'id', creator.id,
+      'fullname', creator.fullname,
+      'avatarurl', creator.avatarurl
+    )
+  )
+  INTO v_group
+  FROM public.groups g
+  LEFT JOIN public.profiles creator ON creator.id = g.createdby
+  LEFT JOIN LATERAL (
+    SELECT
+      (SELECT COUNT(*)::int FROM public.groupmembers gm2 WHERE gm2.groupid = g.id AND (gm2.removedat IS NULL)) AS member_count,
+      (SELECT COUNT(*)::int FROM public.groupjoinrequests gjr WHERE gjr.groupid = g.id AND gjr.status = 'pending') AS pending_join_count,
+      (SELECT COUNT(*)::int FROM public.groupinvites gi WHERE gi.groupid = g.id AND gi.status = 'pending') AS pending_invite_count,
+      (SELECT COALESCE(SUM(e.amount), 0) FROM public.expenses e WHERE e.groupid = g.id) AS total_expenses,
+      (SELECT COALESCE(SUM(s.amount), 0) FROM public.settlements s WHERE s.groupid = g.id) AS total_settlements
+  ) stats ON true
+  WHERE g.id = p_group_id;
+
+  IF v_group IS NULL THEN
+    RAISE EXCEPTION 'Group not found';
+  END IF;
+
+  -- Combined members: groupmembers (type 'member') + groupinvites (type 'pending_invite').
+  SELECT COALESCE(
+    (
+      SELECT jsonb_agg(row ORDER BY sort_key)
+      FROM (
+        -- Active members
+        SELECT
+          1 AS sort_key,
+          'member'::text AS type,
+          gm.id,
+          gm.role::text AS role,
+          gm.joinedat AS joined_at,
+          jsonb_build_object(
+            'id', p.id,
+            'email', p.email,
+            'fullname', p.fullname,
+            'avatarurl', p.avatarurl
+          ) AS user,
+          NULL::text AS email,
+          NULL::timestamptz AS invited_at
+        FROM public.groupmembers gm
+        JOIN public.profiles p ON p.id = gm.userid
+        WHERE gm.groupid = p_group_id
+          AND (gm.removedat IS NULL)
+          AND gm.status = 'active'
+
+        UNION ALL
+
+        -- Pending invites (no user; use email and type)
+        SELECT
+          2 AS sort_key,
+          'pending_invite'::text AS type,
+          gi.id,
+          'member'::text AS role,
+          NULL::timestamptz AS joined_at,
+          NULL::jsonb AS user,
+          gi.invitedemail AS email,
+          gi.createdat AS invited_at
+        FROM public.groupinvites gi
+        WHERE gi.groupid = p_group_id
+          AND gi.status = 'pending'
+      ) row
+    ),
+    '[]'::jsonb
+  ) INTO v_members;
+
+  RETURN jsonb_build_object(
+    'group', v_group,
+    'members', COALESCE(v_members, '[]'::jsonb)
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.getGroupDetails(uuid) IS
+  'Returns group details and a combined members array (groupmembers + pending invites) with type indicator: member | pending_invite.';
+
+GRANT EXECUTE ON FUNCTION public.getGroupDetails(uuid) TO authenticated;
 
 -- =====================================================================
 -- GROUP TRANSACTIONS FEED

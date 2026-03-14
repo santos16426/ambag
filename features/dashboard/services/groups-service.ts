@@ -1,3 +1,4 @@
+import { GROUP_IMAGES_BUCKET } from "@/constants/storage";
 import { createClient } from "@/lib/supabase/client";
 
 interface CreateGroupInput {
@@ -24,7 +25,7 @@ export async function uploadGroupImage(file: File): Promise<string> {
   const filePath = `temp/${uniqueName}`;
 
   const { data, error } = await supabase.storage
-    .from("group-images")
+    .from(GROUP_IMAGES_BUCKET)
     .upload(filePath, file);
 
   if (error) throw error;
@@ -66,7 +67,7 @@ export async function createGroup(
     const destination = group.imageurl;
 
     const { error } = await supabase.storage
-      .from("group-images")
+      .from(GROUP_IMAGES_BUCKET)
       .move(tempImagePath, destination);
     if (error) console.error(error);
   }
@@ -74,7 +75,7 @@ export async function createGroup(
   if (group.imageurl) {
     const supabase = createClient();
     const { data: signed, error: signedError } = await supabase.storage
-      .from("group-images")
+      .from(GROUP_IMAGES_BUCKET)
       .createSignedUrl(group.imageurl, 60 * 60);
 
     if (signedError) {
