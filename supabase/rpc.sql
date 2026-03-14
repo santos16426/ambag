@@ -1848,6 +1848,199 @@ BEGIN
 END;
 $$;
 
+-- =====================================================================
+-- GROUP SUMMARY PER USER
+-- =====================================================================
+-- Per-group, per-user financial summary:
+-- - totalGroupExpenses: sum of all expenses in the group
+-- - totalSettlements: sum of all settlements (not deleted) in the group
+-- - owedByMe: how much the user currently owes others in this group
+-- - owedToMe: how much others currently owe the user in this group
+--
+-- Balance model (per user per group):
+--   balance = payments + settlementsPaid - splitsOwed - settlementsReceived
+--   - payments: sum(expensePayers.amountPaid for user in group)
+--   - splitsOwed: sum(expenseSplits.amountOwed for user in group)
+--   - settlementsPaid: sum(settlements.amount where payerId = user)
+--   - settlementsReceived: sum(settlements.amount where receiverId = user)
+--   If balance > 0 → others owe the user (owedToMe = balance, owedByMe = 0)
+--   If balance < 0 → user owes others (owedByMe = -balance, owedToMe = 0)
+
+CREATE OR REPLACE FUNCTION public.getGroupSummaryForUser(
+  p_group_id uuid,
+  p_user_id uuid DEFAULT auth.uid()
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_total_group_expenses numeric := 0;
+  v_total_group_settlements numeric := 0;
+  v_owed_by_me numeric := 0;
+  v_owed_to_me numeric := 0;
+  v_owed_by_me_breakdown jsonb := '[]'::jsonb;
+  v_owed_to_me_breakdown jsonb := '[]'::jsonb;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'User id is required';
+  END IF;
+
+  IF NOT public.isGroupMember(p_group_id) THEN
+    RAISE EXCEPTION 'Not a member of this group';
+  END IF;
+
+  -- Group-level totals (computed independently to avoid double-counting
+  -- when a group has both expenses and settlements).
+  SELECT COALESCE(SUM(e.amount), 0) INTO v_total_group_expenses
+  FROM public.expenses e
+  WHERE e.groupid = p_group_id;
+
+  SELECT COALESCE(SUM(s.amount), 0) INTO v_total_group_settlements
+  FROM public.settlements s
+  WHERE s.groupid = p_group_id
+    AND s.deletedat IS NULL;
+
+  -- Pairwise balances + per-member breakdown in a single CTE query.
+  -- CTEs are statement-scoped in PL/pgSQL, so all derived tables and
+  -- aggregations must live inside one WITH ... SELECT ... INTO statement.
+  WITH expense_totals AS (
+    SELECT id
+    FROM public.expenses
+    WHERE groupid = p_group_id
+  ),
+  expense_pay_totals AS (
+    SELECT
+      ep.expenseid,
+      SUM(ep.amountpaid) AS total_paid
+    FROM public.expensepayers ep
+    JOIN expense_totals et ON et.id = ep.expenseid
+    GROUP BY ep.expenseid
+  ),
+  expense_flows AS (
+    -- Distribute each participant's owed amount across payers proportionally.
+    SELECT
+      es.userid AS from_user_id,
+      ep.userid AS to_user_id,
+      CASE
+        WHEN ept.total_paid > 0 AND es.amountowed IS NOT NULL THEN
+          es.amountowed * (ep.amountpaid / ept.total_paid)
+        ELSE 0
+      END AS amount
+    FROM public.expensesplits es
+    JOIN expense_totals et ON et.id = es.expenseid
+    JOIN public.expensepayers ep ON ep.expenseid = et.id
+    JOIN expense_pay_totals ept ON ept.expenseid = et.id
+  ),
+  pair_split_net AS (
+    SELECT
+      LEAST(from_user_id, to_user_id) AS u1,
+      GREATEST(from_user_id, to_user_id) AS u2,
+      SUM(
+        CASE
+          WHEN from_user_id = LEAST(from_user_id, to_user_id) THEN amount
+          ELSE -amount
+        END
+      ) AS net_from_u1_to_u2
+    FROM expense_flows
+    WHERE from_user_id <> to_user_id
+    GROUP BY LEAST(from_user_id, to_user_id), GREATEST(from_user_id, to_user_id)
+  ),
+  pair_settlement_net AS (
+    SELECT
+      LEAST(payerid, receiverid) AS u1,
+      GREATEST(payerid, receiverid) AS u2,
+      SUM(
+        CASE
+          WHEN payerid = LEAST(payerid, receiverid) THEN amount
+          ELSE -amount
+        END
+      ) AS net_paid_u1_to_u2
+    FROM public.settlements s
+    WHERE s.groupid = p_group_id
+      AND s.deletedat IS NULL
+      AND payerid <> receiverid
+    GROUP BY LEAST(payerid, receiverid), GREATEST(payerid, receiverid)
+  ),
+  pair_combined AS (
+    SELECT
+      COALESCE(ps.u1, st.u1) AS u1,
+      COALESCE(ps.u2, st.u2) AS u2,
+      COALESCE(ps.net_from_u1_to_u2, 0) AS net_from_u1_to_u2,
+      COALESCE(st.net_paid_u1_to_u2, 0) AS net_paid_u1_to_u2
+    FROM pair_split_net ps
+    FULL OUTER JOIN pair_settlement_net st
+      ON ps.u1 = st.u1 AND ps.u2 = st.u2
+  ),
+  user_pairs AS (
+    -- net_debt > 0  → p_user_id owes other_user
+    -- net_debt < 0  → other_user owes p_user_id
+    SELECT
+      CASE WHEN u1 = p_user_id THEN u2 ELSE u1 END AS other_user_id,
+      CASE
+        WHEN u1 = p_user_id THEN (net_from_u1_to_u2 - net_paid_u1_to_u2)
+        ELSE -(net_from_u1_to_u2 - net_paid_u1_to_u2)
+      END AS net_debt
+    FROM pair_combined
+    WHERE u1 = p_user_id OR u2 = p_user_id
+  )
+  SELECT
+    COALESCE(SUM(CASE WHEN up.net_debt > 0 THEN up.net_debt ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN up.net_debt < 0 THEN -up.net_debt ELSE 0 END), 0),
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'userId', up.other_user_id,
+          'amount', up.net_debt,
+          'userDetails', jsonb_build_object(
+            'id', p.id,
+            'fullName', p.fullname,
+            'avatarUrl', p.avatarurl
+          )
+        )
+      ) FILTER (WHERE up.net_debt > 0),
+      '[]'::jsonb
+    ),
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'userId', up.other_user_id,
+          'amount', -up.net_debt,
+          'userDetails', jsonb_build_object(
+            'id', p.id,
+            'fullName', p.fullname,
+            'avatarUrl', p.avatarurl
+          )
+        )
+      ) FILTER (WHERE up.net_debt < 0),
+      '[]'::jsonb
+    )
+  INTO
+    v_owed_by_me,
+    v_owed_to_me,
+    v_owed_by_me_breakdown,
+    v_owed_to_me_breakdown
+  FROM user_pairs up
+  LEFT JOIN public.profiles p ON p.id = up.other_user_id;
+
+  RETURN jsonb_build_object(
+    'totalGroupExpenses', v_total_group_expenses,
+    'totalSettlements', v_total_group_settlements,
+    'owedByMe', jsonb_build_object(
+      'total', v_owed_by_me,
+      'members', v_owed_by_me_breakdown
+    ),
+    'owedToMe', jsonb_build_object(
+      'total', v_owed_to_me,
+      'members', v_owed_to_me_breakdown
+    )
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.getGroupSummaryForUser(uuid, uuid) TO authenticated;
+
 COMMENT ON FUNCTION public.getGroupDetails(uuid) IS
   'Returns group details and a combined members array (groupmembers + pending invites) with type indicator: member | pending_invite.';
 

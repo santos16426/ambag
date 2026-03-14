@@ -1,5 +1,33 @@
 export type GroupDetailMemberType = "member" | "pending_invite";
 
+export interface GroupSummaryUserDetails {
+  id: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface GroupSummaryMember {
+  userId: string;
+  amount: number;
+  userDetails: GroupSummaryUserDetails;
+}
+
+export interface GroupSummaryBreakdown {
+  total: number;
+  members: GroupSummaryMember[];
+}
+
+export interface GroupSummaryListItem extends GroupSummaryMember {
+  side: "owed" | "owing";
+}
+
+export interface GroupSummaryData {
+  totalGroupExpenses: number;
+  totalSettlements: number;
+  owedByMe: GroupSummaryBreakdown;
+  owedToMe: GroupSummaryBreakdown;
+}
+
 export interface GroupDetailMemberUser {
   id: string;
   email: string;

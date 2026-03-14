@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, Calendar, Check, Loader2, X } from "lucide-react";
 import { EXPENSE_FORM_CURRENCY } from "../constants/expense-form";
@@ -30,6 +30,9 @@ interface SettlementFormProps {
   members: SettlementFormMember[];
   currentUserId?: string | null;
   onSuccess?: (item: TransactionItemSettlement) => void;
+  initialPayerId?: string | null;
+  initialReceiverId?: string | null;
+  initialAmount?: number | null;
 }
 
 export function SettlementForm({
@@ -39,6 +42,9 @@ export function SettlementForm({
   members,
   currentUserId,
   onSuccess,
+  initialPayerId,
+  initialReceiverId,
+  initialAmount,
 }: SettlementFormProps) {
   const defaultFrom = currentUserId ?? members[0]?.id ?? "";
   const defaultTo =
@@ -56,6 +62,36 @@ export function SettlementForm({
   const [successData, setSuccessData] = useState<SettlementSuccessData | null>(
     null,
   );
+
+  // When opening with preset values (from GroupSummary, etc.), prime the form.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialPayerId) {
+      setFromUser(initialPayerId);
+    } else if (!fromUser) {
+      setFromUser(defaultFrom);
+    }
+
+    if (initialReceiverId) {
+      setToUser(initialReceiverId);
+    } else if (!toUser) {
+      setToUser(defaultTo);
+    }
+
+    if (initialAmount != null) {
+      setAmount(initialAmount.toString());
+    }
+  }, [
+    isOpen,
+    initialPayerId,
+    initialReceiverId,
+    initialAmount,
+    defaultFrom,
+    defaultTo,
+    fromUser,
+    toUser,
+  ]);
 
   const amountNum = parseFloat(amount) || 0;
   const fromMember = members.find((m) => m.id === fromUser);
