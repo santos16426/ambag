@@ -1028,6 +1028,23 @@ BEGIN
     email = EXCLUDED.email,
     avatarUrl = COALESCE(EXCLUDED.avatarUrl, public.profiles.avatarUrl);
 
+  -- If this user was invited by email before they had an account, add them to those
+  -- groups as a member, then delete the pending invitation records.
+  INSERT INTO public.groupmembers (groupid, userid, role, joinedat)
+  SELECT gi.groupid, NEW.id, 'member', NOW()
+  FROM public.groupinvites gi
+  WHERE gi.status = 'pending'
+    AND NEW.email IS NOT NULL
+    AND trim(NEW.email) <> ''
+    AND lower(trim(gi.invitedemail)) = lower(trim(NEW.email))
+  ON CONFLICT (groupid, userid) DO NOTHING;
+
+  DELETE FROM public.groupinvites
+  WHERE status = 'pending'
+    AND NEW.email IS NOT NULL
+    AND trim(NEW.email) <> ''
+    AND lower(trim(invitedemail)) = lower(trim(NEW.email));
+
   RETURN NEW;
 END;
 $$;

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import GroupDetailsCard from "@/features/groups/components/GroupDetailsCard";
 import { MembersCard } from "@/features/groups/components/MembersCard";
+import { TransactionList } from "@/features/transactions";
 import {
   GroupDetailsCardSkeleton,
   MembersCardSkeleton,
@@ -102,6 +103,9 @@ function GroupDetailPage() {
             )}
           </AnimatePresence>
         </motion.div>
+      </div>
+      <div className="mt-8">
+        <TransactionList groupid={group.id} />
       </div>
     </div>
   );

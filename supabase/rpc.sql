@@ -1087,6 +1087,7 @@ DECLARE
   v_group_id uuid;
   v_member_id uuid;
   v_group jsonb;
+  v_user_email text;
 BEGIN
   SELECT g.id
   INTO v_group_id
@@ -1112,6 +1113,16 @@ BEGIN
     INSERT INTO public.groupmembers (groupid, userid, role, status, joinedat)
     VALUES (v_group_id, auth.uid(), 'member', 'active', now())
     RETURNING id INTO v_member_id;
+  END IF;
+
+  -- If this user was previously invited by email (pending invitation), delete the invitation
+  -- record; they are already a member (inserted above).
+  SELECT p.email INTO v_user_email FROM public.profiles p WHERE p.id = auth.uid();
+  IF v_user_email IS NOT NULL AND trim(v_user_email) <> '' THEN
+    DELETE FROM public.groupinvites
+    WHERE groupid = v_group_id
+      AND status = 'pending'
+      AND lower(trim(invitedemail)) = lower(trim(v_user_email));
   END IF;
 
   -- Return the same group summary object shape as getUserGroupsSummary items (lowercase keys).
@@ -1769,101 +1780,101 @@ BEGIN
     SELECT
       'expense'::text AS type,
       e.id,
-      e."groupId",
+      e.groupid,
       e.amount,
       e.name,
       e.notes,
-      e."expenseDate" AS expense_date,
-      e."createdAt",
-      COALESCE(e."expenseDate", e."createdAt") AS sort_date,
-      e."splitType" AS split_type,
-      e."receiptUrl",
+      e.expensedate AS expense_date,
+      e.createdat,
+      COALESCE(e.expensedate, e.createdat) AS sort_date,
+      e.splittype AS split_type,
+      e.receipturl,
       jsonb_build_object(
         'id', creator.id,
-        'name', creator."fullName",
-        'avatar', creator."avatarUrl"
+        'name', creator.fullname,
+        'avatar', creator.avatarurl
       ) AS created_by_user,
       (
         SELECT COALESCE(
           jsonb_agg(
             jsonb_build_object(
               'id', p.id,
-              'name', p."fullName",
-              'avatar', p."avatarUrl"
+              'name', p.fullname,
+              'avatar', p.avatarurl
             )
           ),
           '[]'::jsonb
         )
-        FROM public."expensePayers" ep
-        JOIN public.profiles p ON p.id = ep."userId"
-        WHERE ep."expenseId" = e.id
+        FROM public.expensepayers ep
+        JOIN public.profiles p ON p.id = ep.userid
+        WHERE ep.expenseid = e.id
       ) AS payors,
       (
         SELECT COALESCE(
           jsonb_agg(
             jsonb_build_object(
               'id', p.id,
-              'name', p."fullName",
-              'avatar', p."avatarUrl"
+              'name', p.fullname,
+              'avatar', p.avatarurl
             )
           ),
           '[]'::jsonb
         )
-        FROM public."expenseParticipants" ep
-        JOIN public.profiles p ON p.id = ep."userId"
-        WHERE ep."expenseId" = e.id
+        FROM public.expenseparticipants ep
+        JOIN public.profiles p ON p.id = ep.userid
+        WHERE ep.expenseid = e.id
       ) AS participants
     FROM public.expenses e
-    LEFT JOIN public.profiles creator ON creator.id = e."createdBy"
-    WHERE e."groupId" = p_group_id
+    LEFT JOIN public.profiles creator ON creator.id = e.createdby
+    WHERE e.groupid = p_group_id
   ),
   settlement_rows AS (
     SELECT
       'settlement'::text AS type,
       s.id,
-      s."groupId",
+      s.groupid,
       s.amount,
       NULL::text AS name,
       NULL::text AS notes,
       NULL::timestamptz AS expense_date,
-      s."createdAt",
-      s."createdAt" AS sort_date,
+      s.createdat,
+      s.createdat AS sort_date,
       NULL::text AS split_type,
-      s."receiptUrl",
+      s.receipturl,
       NULL::jsonb AS created_by_user,
       '[]'::jsonb AS payors,
       '[]'::jsonb AS participants,
-      s."payerId" AS payer_id,
-      s."receiverId" AS receiver_id,
+      s.payerid AS payer_id,
+      s.receiverid AS receiver_id,
       jsonb_build_object(
         'id', payer.id,
-        'name', payer."fullName",
-        'avatar', payer."avatarUrl"
+        'name', payer.fullname,
+        'avatar', payer.avatarurl
       ) AS payer_user,
       jsonb_build_object(
         'id', receiver.id,
-        'name', receiver."fullName",
-        'avatar', receiver."avatarUrl"
+        'name', receiver.fullname,
+        'avatar', receiver.avatarurl
       ) AS receiver_user
     FROM public.settlements s
-    LEFT JOIN public.profiles payer ON payer.id = s."payerId"
-    LEFT JOIN public.profiles receiver ON receiver.id = s."receiverId"
-    WHERE s."groupId" = p_group_id
-      AND s."deletedAt" IS NULL
+    LEFT JOIN public.profiles payer ON payer.id = s.payerid
+    LEFT JOIN public.profiles receiver ON receiver.id = s.receiverid
+    WHERE s.groupid = p_group_id
+      AND s.deletedat IS NULL
   ),
   combined AS (
     SELECT
       type,
       id,
-      "groupId",
+      groupid,
       amount,
       name,
       notes,
       expense_date,
-      "createdAt",
+      createdat,
       sort_date,
       split_type,
-      "receiptUrl",
+      receipturl,
       created_by_user,
       payors,
       participants,
@@ -1876,20 +1887,20 @@ BEGIN
     SELECT
       type,
       id,
-      "groupId",
+      groupid,
       amount,
       name,
       notes,
       expense_date,
-      "createdAt",
+      createdat,
       sort_date,
       split_type,
-      "receiptUrl",
+      receipturl,
       created_by_user,
       payors,
       participants,
-      "payerId",
-      "receiverId",
+      payer_id,
+      receiver_id,
       payer_user,
       receiver_user
     FROM settlement_rows
@@ -1899,24 +1910,24 @@ BEGIN
       jsonb_build_object(
         'type', type,
         'id', id,
-        'groupId', "groupId",
+        'groupid', groupid,
         'amount', amount,
         'name', name,
         'notes', notes,
-        'expenseDate', expense_date,
-        'createdAt', "createdAt",
+        'expensedate', expense_date,
+        'createdat', createdat,
         'date', sort_date,
-        'splitType', split_type,
-        'receiptUrl', "receiptUrl",
-        'createdBy', created_by_user,
+        'splittype', split_type,
+        'receipturl', receipturl,
+        'createdby', created_by_user,
         'payors', payors,
         'participants', participants,
-        'payerId', payer_id,
-        'receiverId', receiver_id,
+        'payerid', payer_id,
+        'receiverid', receiver_id,
         'payer', payer_user,
         'receiver', receiver_user
       )
-      ORDER BY sort_date DESC, "createdAt" DESC
+      ORDER BY sort_date DESC, createdat DESC
     ),
     '[]'::jsonb
   )
@@ -1928,7 +1939,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.getGroupTransactionsFeed(uuid) IS
-  'Returns a unified, date-sorted feed of expenses and settlements for a group. Each item has type expense | settlement and details (createdBy, payors, participants for expenses; payer, receiver for settlements).';
+  'Returns a unified, date-sorted feed of expenses and settlements for a group. Each item has type expense | settlement and details (lowercase keys: groupid, createdat, expensedate, receipturl, splittype, createdby, payors, participants, payerid, receiverid, payer, receiver).';
 
 GRANT EXECUTE ON FUNCTION public.getGroupTransactionsFeed(uuid) TO authenticated;
 

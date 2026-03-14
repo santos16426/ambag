@@ -2,7 +2,7 @@ const navLinks = [
   { name: "Home", id: "home" },
   { name: "Features", id: "features" },
   { name: "Split Tool", id: "split-tool" },
-  { name: "Pricing", id: "pricing" },
+  // { name: "Pricing", id: "pricing" },
 ];
 
 

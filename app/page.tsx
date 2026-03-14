@@ -44,7 +44,7 @@ export default function Home() {
         <Hero />
         <Features />
         <CalculatorTool />
-        <Pricing />
+        {/* <Pricing /> */}
         <CTA />
       </main>
       <Footer />
