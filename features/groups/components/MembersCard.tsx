@@ -8,7 +8,7 @@ import {
   type MemberInvite,
 } from "@/components/common/MemberSearch";
 import { useAuthStore } from "@/features/auth/store/auth.store";
-import getInitial from "@/lib/useGetInitials";
+import getInitials from "@/lib/get-initials";
 
 import { useGroupDetailsStore } from "../store/group-details.store";
 import {
@@ -48,7 +48,7 @@ function MemberRow({
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
           <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold">
-            {getInitial(user.fullname, user.email)}
+            {getInitials(user.fullname, user.email)}
           </div>
           <div className="absolute -bottom-1 -right-1 rounded-full p-0.5 border-2 border-white shadow-sm bg-emerald-500">
             <Check className="w-2.5 h-2.5 text-white" />
@@ -235,6 +235,17 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
   const memberList = members.filter(
     (m): m is GroupDetailMember => m.type === "member",
   );
+  const sortedMemberList = [...memberList].sort((a, b) => {
+    const aIsCurrentUser =
+      currentUserId !== undefined && a.user?.id === currentUserId;
+    const bIsCurrentUser =
+      currentUserId !== undefined && b.user?.id === currentUserId;
+    if (aIsCurrentUser && !bIsCurrentUser) return -1;
+    if (!aIsCurrentUser && bIsCurrentUser) return 1;
+    const aName = (a.user?.fullname ?? a.user?.email ?? "").toLowerCase();
+    const bName = (b.user?.fullname ?? b.user?.email ?? "").toLowerCase();
+    return aName.localeCompare(bName);
+  });
   const pendingList = members.filter((m) => m.type === "pending_invite");
   const hasAnyMembers = memberList.length > 0 || pendingList.length > 0;
 
@@ -320,7 +331,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
         ) : (
           !isAddMode && (
             <div className="space-y-3">
-              {memberList.map((member) => (
+              {sortedMemberList.map((member) => (
                 <MemberRow
                   key={member.id}
                   member={member}

@@ -133,13 +133,13 @@ export const useDashboardGroupsStore = create<DashboardGroupsState>()(
         const base = toGroup(summary);
         const imagePath = summary.imageurl ?? undefined;
 
-        if (!imagePath) return { ...base, image_url: null };
+        if (!imagePath) return { ...base, imageurl: null };
 
         const signedUrl = signedUrlByPath[imagePath];
 
         return {
           ...base,
-          image_url: signedUrl ?? null,
+          imageurl: signedUrl ?? null,
         };
       });
 

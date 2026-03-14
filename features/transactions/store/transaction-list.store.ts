@@ -3,7 +3,11 @@
 import { create } from "zustand";
 
 import { getTransactionList } from "../services/transaction-list.service";
-import type { TransactionItem } from "../types";
+import type {
+  TransactionItem,
+  TransactionItemExpense,
+  TransactionItemSettlement,
+} from "../types";
 import { TRANSACTION_LIST_PAGE_SIZE } from "../constants";
 
 interface TransactionListState {
@@ -20,6 +24,8 @@ interface TransactionListState {
   loadmore: () => void;
   setpagesize: (size: number) => void;
   cleartransactionlist: () => void;
+  prependExpenseItem: (item: TransactionItemExpense) => void;
+  prependSettlementItem: (item: TransactionItemSettlement) => void;
 }
 
 export const useTransactionListStore = create<TransactionListState>()(
@@ -95,6 +101,22 @@ export const useTransactionListStore = create<TransactionListState>()(
         visiblecount: TRANSACTION_LIST_PAGE_SIZE,
         pagesize: TRANSACTION_LIST_PAGE_SIZE,
         error: null,
+      }),
+
+    prependExpenseItem: (item) =>
+      set((state) => {
+        if (state.groupid !== item.groupid) return state;
+        return {
+          items: [item, ...state.items],
+        };
+      }),
+
+    prependSettlementItem: (item) =>
+      set((state) => {
+        if (state.groupid !== item.groupid) return state;
+        return {
+          items: [item, ...state.items],
+        };
       }),
   }),
 );

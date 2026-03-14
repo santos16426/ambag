@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Users } from "lucide-react";
+import { Coins } from "lucide-react";
 import { TRANSACTION_LIST_LABELS } from "../constants";
 
 export type TransactionListStatusType = "loading" | "error" | "empty";
@@ -124,45 +124,26 @@ function TransactionListErrorContent({
 
 function TransactionListEmptyContent({
   onopenexpense,
-  onopensettlement,
 }: {
   onopenexpense?: () => void;
   onopensettlement?: () => void;
 }) {
   return (
-    <div className="py-10 text-center">
-      <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4">
-        <Users className="w-7 h-7 text-slate-300" />
+    <button
+      type="button"
+      onClick={onopenexpense}
+      className="w-full py-10 text-center cursor-pointer hover:bg-slate-50/80 rounded-2xl transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-offset-2"
+    >
+      <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4">
+        <Coins className="w-7 h-7 text-slate-300" />
       </div>
       <p className="text-sm font-bold text-slate-900 mb-1">
         {TRANSACTION_LIST_LABELS.noActivityYet}
       </p>
-      <p className="text-xs text-slate-500 mb-4">
+      <p className="text-xs text-slate-500">
         {TRANSACTION_LIST_LABELS.noActivityDescription}
       </p>
-      <div className="flex items-center justify-center gap-2">
-        {onopenexpense && (
-          <button
-            type="button"
-            onClick={onopenexpense}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em]"
-          >
-            <Plus className="w-3 h-3" />
-            {TRANSACTION_LIST_LABELS.addExpense}
-          </button>
-        )}
-        {onopensettlement && (
-          <button
-            type="button"
-            onClick={onopensettlement}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.2em]"
-          >
-            <Plus className="w-3 h-3" />
-            {TRANSACTION_LIST_LABELS.settleUp}
-          </button>
-        )}
-      </div>
-    </div>
+    </button>
   );
 }
 

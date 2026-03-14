@@ -1,14 +1,17 @@
+import { User } from "lucide-react";
 import { GroupDetailMember } from "@/features/groups/types";
-import getInitial from "@/lib/useGetInitials";
+import getInitials from "@/lib/get-initials";
 
 export const MemberStack = ({
   members,
   size = "default",
   max = 3,
+  noAvatarFallback = "initials",
 }: {
   members: GroupDetailMember[];
   size?: "small" | "default";
   max?: number;
+  noAvatarFallback?: "initials" | "icon";
 }) => {
   const isSmall = size === "small";
 
@@ -36,11 +39,13 @@ export const MemberStack = ({
                 alt=""
                 className="w-full h-full object-cover"
               />
+            ) : noAvatarFallback === "icon" ? (
+              <User className={isSmall ? "w-2.5 h-2.5 text-white/80" : "w-5 h-5 text-white/80"} />
             ) : (
               <div
                 className={`w-full h-full flex items-center justify-center bg-linear-to-br from-slate-700 to-slate-900 ${isSmall ? "text-[10px]" : "text-xs"} font-bold text-white`}
               >
-                {getInitial(member.user?.fullname ?? null, member.email ?? "")}
+                {getInitials(member.user?.fullname ?? null, member.email ?? "")}
               </div>
             )}
           </div>

@@ -33,7 +33,7 @@ export function TransactionList({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-[2rem] border border-slate-100 p-5">
+      <div className="bg-white p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">

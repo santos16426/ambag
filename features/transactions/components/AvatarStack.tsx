@@ -46,7 +46,7 @@ export function AvatarStack({ users, label }: AvatarStackProps) {
         {label}
       </span>
       <div className="flex items-center gap-1.5">
-        <MemberStack members={members} size="small" max={3} />
+        <MemberStack members={members} size="small" max={3} noAvatarFallback="icon" />
       </div>
     </div>
   );

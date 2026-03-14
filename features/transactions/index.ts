@@ -11,6 +11,15 @@ export { ExpenseCardItem } from "./components/ExpenseCardItem";
 export { SettlementCardItem } from "./components/SettlementCardItem";
 export { AvatarStack } from "./components/AvatarStack";
 export { TransactionItemRow } from "./components/TransactionItem";
+export {
+  ExpenseForm,
+  type ExpenseFormMember,
+  type SplitType,
+} from "./components/ExpenseForm";
+export {
+  SettlementForm,
+  type SettlementFormMember,
+} from "./components/SettlementForm";
 export { TRANSACTION_LIST_LABELS, TRANSACTION_LIST_PAGE_SIZE } from "./constants";
 export type {
   TransactionItem,

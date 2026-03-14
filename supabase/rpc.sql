@@ -80,7 +80,7 @@ GRANT EXECUTE ON FUNCTION public.getprofilebyid(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.deleteProfile(uuid) TO authenticated;
 
 -- =====================================================================
--- USER SEARCH
+-- USER SEARCH (public.profiles only; never auth.users for display)
 -- =====================================================================
 
 CREATE OR REPLACE FUNCTION public.searchUsersByEmail(emailquery text)
@@ -425,6 +425,100 @@ BEGIN
 END;
 $$;
 
+-- Convenience helper that matches the frontend ExpenseSubmitPayload + participants shape
+-- and writes to expenses + expensePayers + expenseSplits in a single transaction.
+-- Expected payload shape (camelCase, as used in the frontend):
+-- {
+--   "groupId": "uuid",
+--   "description": "text",
+--   "amount": 123.45,
+--   "expenseDate": "2025-01-01",
+--   "splitType": "equally" | "shares" | "percentage" | "exact" | "adjustments" | "itemized" | "reimbursement",
+--   "paidBy": "payerUserId" | { "userId": "123.45", ... },
+--   "participants": [ { "user_id": "uuid", "amount_owed": 12.34 }, ... ],
+--   "receiptUrl": "optional/url"
+-- }
+
+CREATE OR REPLACE FUNCTION public.createExpenseWithSplits(payload jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_expense_payload jsonb;
+  v_created jsonb;
+  v_expense_id uuid;
+  v_expense_amount numeric;
+  v_expense_json jsonb;
+  v_participant jsonb;
+  v_paid_by text;
+  v_paid_by_obj jsonb;
+  v_key text;
+  v_value text;
+BEGIN
+  -- Re-map to createExpense's payload (camelCase keys; read both cases from incoming payload)
+  v_expense_payload := jsonb_build_object(
+    'groupId', COALESCE(payload->>'groupId', payload->>'groupid'),
+    'createdBy', auth.uid(),
+    'name', COALESCE(NULLIF(trim(COALESCE(payload->>'description', payload->>'description')), ''), 'Expense'),
+    'amount', COALESCE(payload->>'amount', payload->>'amount'),
+    'splitType', COALESCE(payload->>'splitType', payload->>'splittype'),
+    'notes', NULL,
+    'expenseDate', COALESCE(payload->>'expenseDate', payload->>'expensedate'),
+    'receiptUrl', COALESCE(payload->>'receiptUrl', payload->>'receipturl')
+  );
+
+  v_created := public.createExpense(v_expense_payload);
+  v_expense_json := v_created->'expense';
+  v_expense_id := (v_expense_json->>'id')::uuid;
+  v_expense_amount := (v_expense_json->>'amount')::numeric;
+
+  -- Insert payers (single or multiple)
+  v_paid_by := COALESCE(payload->>'paidBy', payload->>'paidby');
+  v_paid_by_obj := COALESCE(payload->'paidBy', payload->'paidby');
+
+  IF v_paid_by_obj IS NOT NULL AND jsonb_typeof(v_paid_by_obj) = 'object' THEN
+    -- multiple payers: { userId: amountString, ... }
+    FOR v_key, v_value IN
+      SELECT key, value::text
+      FROM jsonb_each_text(v_paid_by_obj)
+    LOOP
+      IF COALESCE(NULLIF(v_value, ''), '0')::numeric > 0 THEN
+        INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
+        VALUES (v_expense_id, v_key::uuid, v_value::numeric);
+      END IF;
+    END LOOP;
+  ELSIF v_paid_by IS NOT NULL AND v_paid_by <> '' THEN
+    -- single payer: paidBy is userId string, amount is full amount
+    INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
+    VALUES (v_expense_id, v_paid_by::uuid, v_expense_amount);
+  END IF;
+
+  -- Insert splits and participants from participants array
+  -- (expenseSplits = who owes how much; expenseParticipants = who is in the expense, used by the feed for "participants")
+  FOR v_participant IN
+    SELECT value
+    FROM jsonb_array_elements(COALESCE(payload->'participants', '[]'::jsonb))
+  LOOP
+    INSERT INTO public."expensesplits" (expenseId, userId, amountOwed, percent, shares)
+    VALUES (
+      v_expense_id,
+      (v_participant->>'user_id')::uuid,
+      COALESCE((v_participant->>'amount_owed')::numeric, 0),
+      NULL,
+      NULL
+    );
+    INSERT INTO public."expenseparticipants" (expenseId, userId)
+    VALUES (v_expense_id, (v_participant->>'user_id')::uuid);
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'expense', v_expense_json,
+    'imageUpload', v_created->'imageUpload'
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.updateExpense(expenseId uuid, payload jsonb)
 RETURNS public.expenses
 LANGUAGE plpgsql
@@ -475,6 +569,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.createExpense(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.createExpenseWithSplits(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.updateExpense(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.getExpenseById(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.deleteExpense(uuid) TO authenticated;
@@ -1578,7 +1673,7 @@ GRANT EXECUTE ON FUNCTION public.getImageUploadPath(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.saveImageUrl(jsonb) TO authenticated;
 
 -- =====================================================================
--- USER GROUPS SUMMARY
+-- USER GROUPS SUMMARY (creator from public.profiles only)
 -- =====================================================================
 -- Returns all groups for the current user with role, counts, totals, and creator.
 
@@ -1645,7 +1740,8 @@ GRANT EXECUTE ON FUNCTION public.getUserGroupsSummary(uuid) TO authenticated;
 -- GROUP DETAILS (single group + combined members list)
 -- =====================================================================
 -- Returns group details and a single members array combining groupmembers
--- and pending invites, each item with a type indicator: 'member' | 'pending_invite'.
+-- and pending invites. Member and creator display fields (fullname, email,
+-- avatarurl) are from public.profiles only; never from auth.users.
 
 CREATE OR REPLACE FUNCTION public.getGroupDetails(p_group_id uuid)
 RETURNS jsonb
@@ -1758,7 +1854,7 @@ COMMENT ON FUNCTION public.getGroupDetails(uuid) IS
 GRANT EXECUTE ON FUNCTION public.getGroupDetails(uuid) TO authenticated;
 
 -- =====================================================================
--- GROUP TRANSACTIONS FEED
+-- GROUP TRANSACTIONS FEED (creator, payors, participants, payer, receiver from public.profiles only)
 -- =====================================================================
 -- Unified list of expenses and settlements for a group, sorted by date.
 -- Each item has type "expense" | "settlement" and relevant details.

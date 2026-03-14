@@ -1,14 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Users,
-  Check,
-  Copy,
-  CreditCard,
-  UserPlus,
-  Mail,
-  User2,
-} from "lucide-react";
+import { Users, Check, Copy, CreditCard, User2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { Group } from "../types";
@@ -29,7 +21,7 @@ const GroupCard = ({ group }: { group: Group }) => {
     setCopyFeedback(code);
     setTimeout(() => setCopyFeedback(null), 2000);
   };
-  const pendingInvites = group.pending_invitations_count ?? 0;
+  const pendingInvites = group.pendinginvitationcount ?? 0;
   const router = useRouter();
   return (
     <motion.div
@@ -45,10 +37,10 @@ const GroupCard = ({ group }: { group: Group }) => {
       <div className="relative z-21 h-full w-full rounded-[2.5rem] bg-slate-950 overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border border-white/10 flex flex-col justify-between transition-all group-hover:shadow-[0_40px_80px_-15px_rgba(107,33,168,0.25)]">
         {/* Visual Image Layer */}
         <div className="absolute inset-0 z-0">
-          {group.image_url ? (
+          {group.imageurl ? (
             <>
               <img
-                src={group.image_url}
+                src={group.imageurl}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 alt={group.name}
               />
@@ -79,7 +71,7 @@ const GroupCard = ({ group }: { group: Group }) => {
             {/* Role Indicator - Simplified */}
             <div className="flex flex-col items-end gap-1">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 drop-shadow-md">
-                {group.user_role === "admin" ? "Owner" : "Member"}
+                {group.userrole === "admin" ? "Owner" : "Member"}
               </span>
               <CreditCard className="text-white/20 w-8 h-8" />
             </div>
@@ -93,21 +85,23 @@ const GroupCard = ({ group }: { group: Group }) => {
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               <div className="flex items-center gap-2 grow">
                 <div className="flex items-center gap-1 text-[10px] font-bold text-white/70 capitalize tracking-widest bg-black/20 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
-                  <Users className="w-3 h-3" /> {group.member_count} Members
+                  <Users className="w-3 h-3" /> {group.membercount} Members
                 </div>
-                <div className="flex items-center -space-x-2">
-                  {[...Array(Math.min(pendingInvites, 3))].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-5 h-5 rounded-full border border-dashed border-amber-500/40 bg-transparent flex items-center justify-center"
-                    >
-                      <User2 className="w-3 h-3 text-amber-400" />
-                    </div>
-                  ))}
-                  <span className="pl-3 text-[10px] font-bold text-amber-500/80">
-                    {pendingInvites} pending
-                  </span>
-                </div>
+                {pendingInvites > 0 && (
+                  <div className="flex items-center -space-x-2">
+                    {[...Array(Math.min(pendingInvites, 3))].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-5 h-5 rounded-full border border-dashed border-amber-500/40 bg-transparent flex items-center justify-center"
+                      >
+                        <User2 className="w-3 h-3 text-amber-400" />
+                      </div>
+                    ))}
+                    <span className="pl-3 text-[10px] font-bold text-amber-500/80">
+                      {pendingInvites} pending
+                    </span>
+                  </div>
+                )}
               </div>
 
               {activeGroupId === group.id && (
@@ -125,13 +119,13 @@ const GroupCard = ({ group }: { group: Group }) => {
                 Invite Code
               </p>
               <button
-                onClick={(e) => handleCopy(group.invite_code ?? "", e)}
+                onClick={(e) => handleCopy(group.invitecode ?? "", e)}
                 className="flex items-center gap-2 font-mono text-lg font-bold text-white hover:text-purple-400 transition-colors drop-shadow-lg"
               >
-                {copyFeedback === group.invite_code
+                {copyFeedback === group.invitecode
                   ? "COPIED"
-                  : group.invite_code}
-                {copyFeedback !== group.invite_code && (
+                  : group.invitecode}
+                {copyFeedback !== group.invitecode && (
                   <Copy className="w-4 h-4 opacity-30" />
                 )}
               </button>
@@ -142,7 +136,7 @@ const GroupCard = ({ group }: { group: Group }) => {
                 Total Ambag
               </p>
               <p className="text-2xl font-black text-white tracking-tighter leading-none drop-shadow-lg">
-                ₱{group.total_expenses?.toLocaleString() ?? 0}
+                ₱{group.totalexpenses?.toLocaleString() ?? 0}
               </p>
             </div>
           </div>

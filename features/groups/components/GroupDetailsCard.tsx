@@ -1,7 +1,6 @@
 "use client";
 
 import type { Group } from "@/features/dashboard/types";
-import getInitial from "@/lib/useGetInitials";
 import { useCopyInviteCode } from "@/features/groups/hooks/useCopyInviteCode";
 import { useGroupCoverImageUpload } from "@/features/groups/hooks/useGroupCoverImageUpload";
 import { useGroupDetailsEditing } from "@/features/groups/hooks/useGroupDetailsEditing";
@@ -15,7 +14,6 @@ import {
   Edit2,
   ImageMinus,
   Loader2,
-  Users,
   X,
 } from "lucide-react";
 import { PremiumMeshBackground } from "./Skeleton";

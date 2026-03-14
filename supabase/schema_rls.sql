@@ -503,7 +503,7 @@ CREATE TABLE IF NOT EXISTS public.settlements (
   payerId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   receiverId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
-  paymentMethodId UUID NOT NULL REFERENCES public.paymentMethods(id) ON DELETE CASCADE,
+  paymentMethodId UUID REFERENCES public.paymentMethods(id) ON DELETE SET NULL,
   receiptUrl TEXT,
   createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deletedAt TIMESTAMPTZ
@@ -1017,16 +1017,11 @@ BEGIN
     NULLIF(trim(NEW.raw_user_meta_data->>'picture'), '')
   );
 
-  -- Upsert so that:
-  -- - new email/password or Google accounts create a profile
-  -- - later Google sign-in / metadata updates keep the profile in sync
+  -- Insert profile only when missing; do not overwrite existing profiles on later
+  -- logins (e.g. Google) so that edits in public.profiles are preserved.
   INSERT INTO public.profiles (id, fullName, email, avatarUrl, createdAt)
   VALUES (NEW.id, display_name, NEW.email, avatar_url, NOW())
-  ON CONFLICT (id) DO UPDATE
-  SET
-    fullName = EXCLUDED.fullName,
-    email = EXCLUDED.email,
-    avatarUrl = COALESCE(EXCLUDED.avatarUrl, public.profiles.avatarUrl);
+  ON CONFLICT (id) DO NOTHING;
 
   -- If this user was invited by email before they had an account, add them to those
   -- groups as a member, then delete the pending invitation records.
