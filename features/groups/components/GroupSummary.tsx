@@ -168,7 +168,11 @@ export function GroupSummary({
         <div className="relative group">
           <div className="absolute inset-0 bg-linear-to-tr from-indigo-500/15 to-rose-500/15 blur-3xl rounded-[2.5rem] -z-10 group-hover:opacity-80 transition-opacity duration-700" />
 
-          <div className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-6 md:p-7 shadow-[0_8px_32px_rgba(15,23,42,0.06)]">
+          <div
+            className={`bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-6 md:p-7 shadow-xl ${
+              isOverallCredit ? "shadow-emerald-500/20" : "shadow-rose-500/20"
+            }`}
+          >
             <div className="flex justify-between items-start mb-6">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-1 block">
