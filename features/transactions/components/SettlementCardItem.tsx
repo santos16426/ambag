@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, EyeOff } from "lucide-react";
 import { formatDisplayDate } from "@/lib/utils";
 import { TRANSACTION_LIST_LABELS } from "../constants";
 import type { TransactionItemSettlement } from "../types";
@@ -13,12 +13,19 @@ function displayName(user: { name: string | null } | null): string {
 interface SettlementCardItemProps {
   item: TransactionItemSettlement;
   currentUserId?: string | null;
+  isinvolved: boolean;
 }
 
-export function SettlementCardItem({ item, currentUserId }: SettlementCardItemProps) {
+export function SettlementCardItem({
+  item,
+  currentUserId,
+  isinvolved,
+}: SettlementCardItemProps) {
   const date = formatDisplayDate(item.date);
   const fromName =
-    item.payer?.id === currentUserId ? "You" : displayName(item.payer) || "Sender";
+    item.payer?.id === currentUserId
+      ? "You"
+      : displayName(item.payer) || "Sender";
   const toName =
     item.receiver?.id === currentUserId
       ? "You"
@@ -26,6 +33,14 @@ export function SettlementCardItem({ item, currentUserId }: SettlementCardItemPr
 
   return (
     <div className="bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer">
+      {!isinvolved && (
+        <div className="absolute top-3 left-4 z-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-100">
+          <EyeOff size={10} className="text-slate-400 shrink-0" />
+          <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none">
+            Not involved
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-1">
         <div className="px-2.5 py-1 bg-emerald-50 rounded-lg">
           <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">

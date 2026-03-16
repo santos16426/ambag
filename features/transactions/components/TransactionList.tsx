@@ -8,21 +8,28 @@ import {
 } from "../constants";
 import { TransactionListStatus } from "./TransactionListStatus";
 import { TransactionListItems } from "./TransactionListItems";
+import type { TransactionItemExpense } from "../types";
 
 interface TransactionListProps {
   groupid: string;
   pagesize?: number;
   currentUserId?: string | null;
+  highlightId?: string | null;
   onOpenExpense?: () => void;
   onOpenSettlement?: () => void;
+  onEditExpense?: (item: TransactionItemExpense) => void;
+  onDeleteExpense?: (item: TransactionItemExpense) => void;
 }
 
 export function TransactionList({
   groupid,
   pagesize = TRANSACTION_LIST_PAGE_SIZE,
   currentUserId = null,
+  highlightId,
   onOpenExpense,
   onOpenSettlement,
+  onEditExpense,
+  onDeleteExpense,
 }: TransactionListProps) {
   const { items, total, hasmore, loadmore, loading, error, refetch } =
     useTransactionList(groupid, { pagesize });
@@ -39,9 +46,6 @@ export function TransactionList({
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">
               <Receipt className="w-3 h-3" />
               {TRANSACTION_LIST_LABELS.activity}
-            </p>
-            <p className="text-sm font-bold text-slate-900 mt-1">
-              {TRANSACTION_LIST_LABELS.expensesAndSettlements}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -82,7 +86,13 @@ export function TransactionList({
           />
         ) : (
           <>
-            <TransactionListItems items={items} currentUserId={currentUserId} />
+            <TransactionListItems
+              items={items}
+              currentUserId={currentUserId}
+              highlightId={highlightId}
+              onEditExpense={onEditExpense}
+              onDeleteExpense={onDeleteExpense}
+            />
             {hasmore && (
               <div className="flex justify-center pt-4">
                 <button

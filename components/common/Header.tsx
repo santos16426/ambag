@@ -12,18 +12,27 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/features/auth/store/auth.store";
+import {
+  useNotificationStore,
+  NotificationPanel,
+} from "@/features/notifications";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLayoutStore } from "@/store/layoutStore";
+
 const Header = () => {
   const router = useRouter();
   // Group switcher — commented out; revisit in a separate issue (groups feature / RPC).
   // const switcherRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
   // const [showSwitcher, setShowSwitcher] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const { profile, logout } = useAuthStore();
   const { isSidebarOpen, setIsSidebarOpen } = useLayoutStore();
+  const { unreadCount, fetchUnreadCount } = useNotificationStore();
+
   /* Group switcher click-outside — re-enable with switcher UI
   useEffect(() => {
     if (!showSwitcher) return;
@@ -41,6 +50,10 @@ const Header = () => {
   */
 
   useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
     if (!showProfileMenu) return;
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -53,10 +66,26 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showProfileMenu]);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showNotifications]);
+
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
+
   return (
     <header className="sticky top-0 z-100 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-3 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -80,10 +109,28 @@ const Header = () => {
 
       <div className="flex items-center gap-3 sm:gap-6">
         <div className="flex items-center gap-2">
-          <button className="p-2.5 text-slate-400 hover:bg-slate-50 rounded-xl transition-all relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
-          </button>
+          {/* NOTIFICATION BELL */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={`p-2.5 rounded-xl transition-all relative ${
+                showNotifications
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center leading-none">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <NotificationPanel onClose={() => setShowNotifications(false)} />
+            )}
+          </div>
+
           <div className="relative" ref={profileMenuRef}>
             <button
               id="profile-menu-trigger"

@@ -519,6 +519,116 @@ BEGIN
 END;
 $$;
 
+-- Updates an existing expense and fully replaces its payers, splits, and participants
+-- using the same payload shape as createExpenseWithSplits, plus an expenseId field.
+-- Expected payload shape:
+-- {
+--   "expenseId": "uuid",
+--   "groupId": "uuid",
+--   "description": "text",
+--   "amount": 123.45,
+--   "expenseDate": "2025-01-01",
+--   "splitType": "equally" | "shares" | "percentage" | "exact" | "adjustments" | "itemized" | "reimbursement",
+--   "paidBy": "payerUserId" | { "userId": "123.45", ... },
+--   "participants": [ { "user_id": "uuid", "amount_owed": 12.34 }, ... ],
+--   "receiptUrl": "optional/url"
+-- }
+CREATE OR REPLACE FUNCTION public.updateExpenseWithSplits(payload jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_expense_id uuid := COALESCE((payload->>'expenseId')::uuid, (payload->>'expenseid')::uuid);
+  v_group_id uuid := COALESCE((payload->>'groupId')::uuid, (payload->>'groupid')::uuid);
+  v_expense_payload jsonb;
+  v_updated public.expenses;
+  v_expense_json jsonb;
+  v_expense_amount numeric;
+  v_participant jsonb;
+  v_paid_by text;
+  v_paid_by_obj jsonb;
+  v_key text;
+  v_value text;
+BEGIN
+  IF v_expense_id IS NULL THEN
+    RAISE EXCEPTION 'expenseId is required';
+  END IF;
+
+  -- Update main expense row to match incoming payload (camelCase/lowercase tolerant)
+  UPDATE public.expenses e
+  SET
+    groupid = COALESCE(v_group_id, e.groupid),
+    name = COALESCE(
+      NULLIF(trim(COALESCE(payload->>'description', payload->>'name')), ''),
+      e.name
+    ),
+    amount = COALESCE((payload->>'amount')::numeric, e.amount),
+    splittype = COALESCE(payload->>'splitType', payload->>'splittype', e.splittype),
+    notes = e.notes,
+    expensedate = COALESCE(
+      (COALESCE(payload->>'expenseDate', payload->>'expensedate'))::timestamptz,
+      e.expensedate
+    ),
+    receipturl = COALESCE(payload->>'receiptUrl', payload->>'receipturl', e.receipturl)
+  WHERE e.id = v_expense_id
+  RETURNING * INTO v_updated;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Expense not found: %', v_expense_id;
+  END IF;
+
+  v_expense_amount := v_updated.amount;
+  v_expense_json := to_jsonb(v_updated);
+
+  -- Clear previous payers, splits, and participants to avoid overlap
+  DELETE FROM public."expensepayers" WHERE expenseid = v_expense_id;
+  DELETE FROM public."expensesplits" WHERE expenseid = v_expense_id;
+  DELETE FROM public."expenseparticipants" WHERE expenseid = v_expense_id;
+
+  -- Insert payers (single or multiple), same rules as createExpenseWithSplits
+  v_paid_by := COALESCE(payload->>'paidBy', payload->>'paidby');
+  v_paid_by_obj := COALESCE(payload->'paidBy', payload->'paidby');
+
+  IF v_paid_by_obj IS NOT NULL AND jsonb_typeof(v_paid_by_obj) = 'object' THEN
+    FOR v_key, v_value IN
+      SELECT key, value::text
+      FROM jsonb_each_text(v_paid_by_obj)
+    LOOP
+      IF COALESCE(NULLIF(v_value, ''), '0')::numeric > 0 THEN
+        INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
+        VALUES (v_expense_id, v_key::uuid, v_value::numeric);
+      END IF;
+    END LOOP;
+  ELSIF v_paid_by IS NOT NULL AND v_paid_by <> '' THEN
+    INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
+    VALUES (v_expense_id, v_paid_by::uuid, v_expense_amount);
+  END IF;
+
+  -- Insert splits and participants from participants array
+  FOR v_participant IN
+    SELECT value
+    FROM jsonb_array_elements(COALESCE(payload->'participants', '[]'::jsonb))
+  LOOP
+    INSERT INTO public."expensesplits" (expenseId, userId, amountOwed, percent, shares)
+    VALUES (
+      v_expense_id,
+      (v_participant->>'user_id')::uuid,
+      COALESCE((v_participant->>'amount_owed')::numeric, 0),
+      NULL,
+      NULL
+    );
+    INSERT INTO public."expenseparticipants" (expenseId, userId)
+    VALUES (v_expense_id, (v_participant->>'user_id')::uuid);
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'expense', v_expense_json,
+    'imageUpload', NULL
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.updateExpense(expenseId uuid, payload jsonb)
 RETURNS public.expenses
 LANGUAGE plpgsql
@@ -570,6 +680,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.createExpense(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.createExpenseWithSplits(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.updateExpenseWithSplits(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.updateExpense(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.getExpenseById(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.deleteExpense(uuid) TO authenticated;
@@ -1042,6 +1153,19 @@ GRANT EXECUTE ON FUNCTION public.createNotificationRpc(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.updateNotificationRpc(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.getNotificationById(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.deleteNotification(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.getUnreadNotificationCount()
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT COUNT(*)::integer
+  FROM public.notifications
+  WHERE userId = auth.uid()
+  AND isRead = FALSE;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.getUnreadNotificationCount() TO authenticated;
 
 -- =====================================================================
 -- GROUP INVITES

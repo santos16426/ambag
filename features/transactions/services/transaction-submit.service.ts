@@ -33,6 +33,11 @@ export interface SubmitExpenseResult {
   error: Error | null;
 }
 
+export interface ExpenseUpdatePayload extends ExpenseSubmitPayload {
+  /** Existing expense identifier to update. */
+  expenseId: string;
+}
+
 export interface SettlementSubmitPayload {
   groupId: string;
   payerId: string;
@@ -80,6 +85,66 @@ export async function submitExpense(
       : null,
     error: null,
   };
+}
+
+/**
+ * Updates an existing expense (including payors and splits) in one transaction via updateExpenseWithSplits RPC.
+ */
+export async function updateExpense(
+  payload: ExpenseUpdatePayload,
+): Promise<SubmitExpenseResult> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc("updateexpensewithsplits", {
+    payload: {
+      expenseId: payload.expenseId,
+      groupId: payload.groupId,
+      description: payload.description,
+      amount: payload.amount,
+      expenseDate: payload.expenseDate,
+      splitType: payload.splitType,
+      paidBy: payload.paidBy,
+      participants: payload.participants,
+      receiptUrl: payload.receiptUrl ?? null,
+    },
+  });
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  const result = data as { expense?: RawExpenseRow; imageUpload?: unknown } | null;
+  const expense = result?.expense ?? null;
+  return {
+    data: expense
+      ? { expense, imageUpload: result?.imageUpload }
+      : null,
+    error: null,
+  };
+}
+
+export interface DeleteExpenseResult {
+  success: boolean;
+  error: Error | null;
+}
+
+/**
+ * Soft-deletes an expense via deleteExpense RPC.
+ */
+export async function deleteExpense(
+  expenseId: string,
+): Promise<DeleteExpenseResult> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc("deleteexpense", {
+    expenseid: expenseId,
+  });
+
+  if (error) {
+    return { success: false, error };
+  }
+
+  return { success: data === true, error: null };
 }
 
 /**

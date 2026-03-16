@@ -1,6 +1,7 @@
 export { getTransactionList } from "./services/transaction-list.service";
 export { useTransactionListStore } from "./store/transaction-list.store";
 export { useTransactionList } from "./hooks/useTransactionList";
+export { useIsInvolved } from "./hooks/useIsInvolved";
 export { TransactionList } from "./components/TransactionList";
 export {
   TransactionListStatus,
@@ -16,6 +17,7 @@ export {
   type ExpenseFormMember,
   type SplitType,
 } from "./components/ExpenseForm";
+export { DeleteExpenseModal } from "./components/DeleteExpenseModal";
 export {
   SettlementForm,
   type SettlementFormMember,

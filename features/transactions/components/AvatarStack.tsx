@@ -19,7 +19,7 @@ function toMemberStackMembers(users: TransactionUser[]): GroupDetailMember[] {
       id: user.id,
       email: "",
       fullname: user.name,
-      avatarurl: user.avatar,
+      avatarurl: user.avatar ?? null,
     },
     email: null,
     invited_at: null,
@@ -46,7 +46,12 @@ export function AvatarStack({ users, label }: AvatarStackProps) {
         {label}
       </span>
       <div className="flex items-center gap-1.5">
-        <MemberStack members={members} size="small" max={3} noAvatarFallback="icon" />
+        <MemberStack
+          members={members}
+          size="small"
+          max={3}
+          noAvatarFallback="icon"
+        />
       </div>
     </div>
   );

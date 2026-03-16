@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeftRight,
   Camera,
   Check,
-  DollarSign,
   Equal,
   Hash,
   Loader2,
@@ -31,6 +30,7 @@ import {
 } from "../constants/forms";
 import { useExpenseForm } from "../hooks/useExpenseForm";
 import { ExpenseSuccessReceipt } from "./ExpenseSuccessReceipt";
+import { deleteExpense } from "../services/transaction-submit.service";
 
 const SPLIT_METHOD_ICONS: Record<
   SplitType,
@@ -54,19 +54,20 @@ export function ExpenseForm({
   members,
   currentUserId,
   onSuccess,
+  onDelete,
+  mode,
+  initialExpense,
 }: ExpenseFormProps) {
   const {
     step,
     description,
     setDescription,
-    amount,
     setAmount,
     amountDisplay,
     expenseDate,
     setExpenseDate,
     payMode,
     setPayMode,
-    singlePayer,
     setSinglePayer,
     effectiveSinglePayer,
     multiplePayers,
@@ -105,9 +106,28 @@ export function ExpenseForm({
     currentUserId,
     onClose,
     onSuccess,
+    mode,
+    initialExpense,
   });
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = useCallback(async () => {
+    if (!initialExpense) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    const { success, error } = await deleteExpense(initialExpense.id);
+    setIsDeleting(false);
+    if (error || !success) {
+      setDeleteError(error?.message ?? "Failed to delete expense");
+      return;
+    }
+    onDelete?.(initialExpense.id);
+    resetAndClose();
+  }, [initialExpense, onDelete, resetAndClose]);
 
   return (
     <AnimatePresence>
@@ -118,7 +138,7 @@ export function ExpenseForm({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={FORM_OVERLAY_TRANSITION}
-          className="fixed inset-0 z-100 overflow-y-auto bg-[#F8F9FD]/98 backdrop-blur-md flex justify-center items-start p-4"
+          className="fixed inset-0 z-100 overflow-y-auto bg-[#F8F9FD]/98 backdrop-blur-md flex justify-center items-start lg:p-4"
         >
           <AnimatePresence>
             {isPreviewOpen && receiptImage && (
@@ -161,26 +181,89 @@ export function ExpenseForm({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 4 }}
                 transition={FORM_CARD_TRANSITION}
-                className="my-auto w-full max-w-lg lg:max-w-6xl max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-100"
+                className="my-auto w-full max-w-lg lg:max-w-6xl lg:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col bg-white lg:rounded-[2.5rem] shadow-2xl border border-slate-100"
               >
                 <div className="p-8 pb-4 flex justify-between items-start shrink-0">
                   <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">
-                      Add Expense
+                      {initialExpense ? "Edit Expense" : "Add Expense"}
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                       Description, amount & split
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={resetAndClose}
-                    className="p-2 hover:bg-slate-50 rounded-full transition-colors"
-                    aria-label="Close"
-                  >
-                    <X className="w-5 h-5 text-slate-400" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {initialExpense && (
+                      <AnimatePresence mode="wait">
+                        {deleteConfirm ? (
+                          <motion.div
+                            key="delete-confirm"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="text-[10px] font-black uppercase text-red-600">
+                              Delete?
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleDelete}
+                              disabled={isDeleting}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-red-700 transition-colors disabled:opacity-50"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                              Confirm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteConfirm(false);
+                                setDeleteError(null);
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase hover:bg-slate-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </motion.div>
+                        ) : (
+                          <motion.button
+                            key="delete-btn"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            type="button"
+                            onClick={() => setDeleteConfirm(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    )}
+                    <button
+                      type="button"
+                      onClick={resetAndClose}
+                      className="p-2 hover:bg-slate-50 rounded-full transition-colors"
+                      aria-label="Close"
+                    >
+                      <X className="w-5 h-5 text-slate-400" />
+                    </button>
+                  </div>
                 </div>
+                {deleteError && (
+                  <div className="px-8 pb-2 shrink-0">
+                    <p className="text-[11px] font-bold text-red-600 bg-red-50 rounded-xl px-3 py-2">
+                      {deleteError}
+                    </p>
+                  </div>
+                )}
 
                 <form
                   onSubmit={handleSubmit}
@@ -680,7 +763,7 @@ export function ExpenseForm({
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-3 shrink-0">
+                        <div className="flex gap-3 shrink-0 mt-4">
                           <button
                             type="button"
                             onClick={resetAndClose}
@@ -695,11 +778,10 @@ export function ExpenseForm({
                           >
                             {isSubmitting ? (
                               <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : initialExpense ? (
+                              "Save Changes"
                             ) : (
-                              <>
-                                <DollarSign className="w-4 h-4" />
-                                Add Expense
-                              </>
+                              "Add Expense"
                             )}
                           </button>
                         </div>

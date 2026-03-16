@@ -19,15 +19,15 @@ export const MemberStack = ({
   const additionalMembers = members.slice(max);
   const additionalCount = additionalMembers.length;
 
-  const avatarSize = isSmall ? "w-4 h-4" : "w-10 h-10";
-  const stackOverlap = isSmall ? "-space-x-2" : "-space-x-3";
+  const avatarSize = isSmall ? "w-5 h-5" : "w-10 h-10";
+  const stackOverlap = isSmall ? "-space-x-[7px]" : "-space-x-3";
 
   return (
     <div className={`flex ${stackOverlap} items-center`}>
       {displayMembers.map((member: GroupDetailMember) => (
         <div key={member.id} className="relative group/avatar">
           <div
-            className={`relative ${avatarSize} rounded-full border-2 border-slate-950 bg-slate-800 flex items-center justify-center overflow-hidden transition-all hover:z-30  ${
+            className={`relative ${avatarSize} rounded-full border border-slate-950 bg-slate-800 flex items-center justify-center overflow-hidden transition-all hover:z-30  ${
               member.type === "pending_invite"
                 ? "opacity-50 ring-1 ring-amber-500/40"
                 : ""
@@ -40,7 +40,13 @@ export const MemberStack = ({
                 className="w-full h-full object-cover"
               />
             ) : noAvatarFallback === "icon" ? (
-              <User className={isSmall ? "w-2.5 h-2.5 text-white/80" : "w-5 h-5 text-white/80"} />
+              <User
+                className={
+                  isSmall
+                    ? "w-2.5 h-2.5 text-white/80"
+                    : "w-5 h-5 text-white/80"
+                }
+              />
             ) : (
               <div
                 className={`w-full h-full flex items-center justify-center bg-linear-to-br from-slate-700 to-slate-900 ${isSmall ? "text-[10px]" : "text-xs"} font-bold text-white`}

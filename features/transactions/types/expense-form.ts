@@ -36,7 +36,10 @@ export interface ExpenseFormProps {
   groupId: string;
   members: ExpenseFormMember[];
   currentUserId?: string | null;
+  mode?: "create" | "edit";
+  initialExpense?: TransactionItemExpense | null;
   onSuccess?: (item: TransactionItemExpense) => void;
+  onDelete?: (expenseId: string) => void;
 }
 
 export type SplitValueField =
@@ -45,7 +48,6 @@ export type SplitValueField =
   | "adjustment"
   | "amount_owed";
 
-/** Data passed to the success receipt (printing) view. */
 export interface ExpenseSuccessReceiptData {
   description: string;
   amount: number;

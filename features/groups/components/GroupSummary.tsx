@@ -1,14 +1,19 @@
 "use client";
 
 import {
+  BellRing,
+  Check,
   ChevronRight,
   Heart,
   RotateCcw,
   TrendingDown,
   TrendingUp,
-  Wallet,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
+
+import { useAuthStore } from "@/features/auth";
+import { sendPaymentReminder } from "@/features/notifications";
 
 import { GROUP_SUMMARY_CURRENCY, GROUP_SUMMARY_LABELS } from "../constants";
 import { useGroupSummary } from "../hooks/useGroupSummary";
@@ -98,8 +103,6 @@ export function GroupSummary({
     loading,
     error,
     refetch,
-    totalGroupExpenses,
-    totalSettlements,
     owedByMeTotal,
     owedToMeTotal,
     netBalance,
@@ -109,6 +112,29 @@ export function GroupSummary({
     items,
     isEmpty,
   } = useGroupSummary(groupId);
+
+  const { profile, sessionUser } = useAuthStore();
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [remindedIds, setRemindedIds] = useState<Set<string>>(new Set());
+
+  async function handleRemind(toUserId: string, amount: number) {
+    if (remindingId || remindedIds.has(toUserId)) return;
+    setRemindingId(toUserId);
+    const { error: reminderError } = await sendPaymentReminder({
+      toUserId,
+      fromUserId: sessionUser?.id ?? "",
+      groupId,
+      amount,
+      senderName: profile?.fullname ?? "Someone",
+    });
+    setRemindingId(null);
+    if (reminderError) {
+      toast.error("Failed to send reminder. Please try again.");
+      return;
+    }
+    setRemindedIds((prev) => new Set(prev).add(toUserId));
+    toast.success("Reminder sent!");
+  }
 
   if (loading && items.length === 0) return <GroupSummarySkeleton />;
 
@@ -133,7 +159,7 @@ export function GroupSummary({
   }
 
   return (
-    <div className="w-full font-sans antialiased text-slate-900">
+    <div className="w-full font-sans antialiased text-slate-900 sticky top-10">
       <div className="relative space-y-8">
         {/* Hero card */}
         <div className="relative group">
@@ -230,81 +256,103 @@ export function GroupSummary({
             </div>
           )}
 
-          {items.map((item, index: number) => (
-            <div
-              // eslint-disable-next-line react/no-array-index-key
-              key={`${item.userId}-${index}`}
-              style={{ animationDelay: `${index * 40}ms` }}
-              className="animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 cursor-pointer"
-              onClick={() => {
-                if (item.side === "owing" && currentUserId && onSettleWith) {
-                  onSettleWith({
-                    payerId: currentUserId,
-                    receiverId: item.userId,
-                    amount: item.amount,
-                  });
-                  return;
-                }
+          {items.map((item, index: number) => {
+            const isReminded = remindedIds.has(item.userId);
+            const isReminding = remindingId === item.userId;
 
-                // TODO: open a dedicated “request payment” flow instead of just a toast.
-                if (item.side === "owed") {
-                  const name = item.userDetails.fullName ?? "this friend";
-                  toast.info(
-                    `Reminded ${name} to pay you ${GROUP_SUMMARY_CURRENCY.symbol}${formatAmount(
-                      item.amount,
-                    )}.`,
-                  );
-                }
-              }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-linear-to-br from-slate-100 to-white flex items-center justify-center border border-white shadow-sm group-hover:scale-105 transition-transform">
-                  <span className="text-xs font-bold text-slate-700">
-                    {item.userDetails.fullName
-                      ?.split(" ")
-                      .map((n: string) => n[0])
-                      .join("") ?? "?"}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {item.userDetails.fullName ?? "Unknown"}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {item.side === "owed" ? (
-                      <TrendingUp size={10} className="text-emerald-500" />
-                    ) : (
-                      <TrendingDown size={10} className="text-rose-500" />
-                    )}
-                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">
-                      {item.side === "owed"
-                        ? GROUP_SUMMARY_LABELS.badgeSettlementPending
-                        : GROUP_SUMMARY_LABELS.badgeActionRequired}
+            return (
+              <div
+                // eslint-disable-next-line react/no-array-index-key
+                key={`${item.userId}-${index}`}
+                style={{ animationDelay: `${index * 40}ms` }}
+                className={`animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 ${
+                  item.side === "owing" ? "cursor-pointer" : "cursor-default"
+                }`}
+                onClick={() => {
+                  if (item.side === "owing" && currentUserId && onSettleWith) {
+                    onSettleWith({
+                      payerId: currentUserId,
+                      receiverId: item.userId,
+                      amount: item.amount,
+                    });
+                  }
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-2xl bg-linear-to-br from-slate-100 to-white flex items-center justify-center border border-white shadow-sm group-hover:scale-105 transition-transform">
+                    <span className="text-xs font-bold text-slate-700">
+                      {item.userDetails.fullName
+                        ?.split(" ")
+                        .map((n: string) => n[0])
+                        .join("") ?? "?"}
                     </span>
                   </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {item.userDetails.fullName ?? "Unknown"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {item.side === "owed" ? (
+                        <TrendingUp size={10} className="text-emerald-500" />
+                      ) : (
+                        <TrendingDown size={10} className="text-rose-500" />
+                      )}
+                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">
+                        {item.side === "owed"
+                          ? GROUP_SUMMARY_LABELS.badgeSettlementPending
+                          : GROUP_SUMMARY_LABELS.badgeActionRequired}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p
-                    className={`text-sm font-black tracking-tight ${
-                      item.side === "owed"
-                        ? "text-emerald-700"
-                        : "text-rose-600"
-                    }`}
-                  >
-                    {item.side === "owed" ? "+" : "-"}{" "}
-                    {GROUP_SUMMARY_CURRENCY.symbol}
-                    {formatAmount(Math.abs(item.amount))}
-                  </p>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100 shadow-sm">
-                  <ChevronRight size={14} className="text-slate-400" />
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p
+                      className={`text-sm font-black tracking-tight ${
+                        item.side === "owed"
+                          ? "text-emerald-700"
+                          : "text-rose-600"
+                      }`}
+                    >
+                      {item.side === "owed" ? "+" : "-"}{" "}
+                      {GROUP_SUMMARY_CURRENCY.symbol}
+                      {formatAmount(Math.abs(item.amount))}
+                    </p>
+                  </div>
+
+                  {item.side === "owed" ? (
+                    <button
+                      type="button"
+                      disabled={isReminding || isReminded}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemind(item.userId, item.amount);
+                      }}
+                      title={isReminded ? "Reminder sent" : "Send payment reminder"}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center border shadow-sm transition-all ${
+                        isReminded
+                          ? "bg-emerald-50 border-emerald-100 text-emerald-500 opacity-60"
+                          : isReminding
+                            ? "bg-indigo-50 border-indigo-100 text-indigo-400 animate-pulse"
+                            : "bg-slate-50 border-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-500"
+                      }`}
+                    >
+                      {isReminded ? (
+                        <Check size={13} />
+                      ) : (
+                        <BellRing size={13} />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100 shadow-sm">
+                      <ChevronRight size={14} className="text-slate-400" />
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

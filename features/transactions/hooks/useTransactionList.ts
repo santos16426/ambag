@@ -63,6 +63,7 @@ export function useTransactionList(
   const visibleitems = items.slice(0, visiblecount);
   const hasmore = visiblecount < items.length;
 
+
   return {
     items: visibleitems,
     total: items.length,

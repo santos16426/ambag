@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useParams,
+  useRouter,
+  useSearchParams,
+  usePathname,
+} from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import GroupDetailsCard from "@/features/groups/components/GroupDetailsCard";
@@ -10,8 +15,10 @@ import {
   TransactionList,
   ExpenseForm,
   SettlementForm,
+  DeleteExpenseModal,
   useTransactionListStore,
   type ExpenseFormMember,
+  type TransactionItemExpense,
 } from "@/features/transactions";
 import {
   GroupDetailsCardSkeleton,
@@ -24,27 +31,34 @@ import {
 import { useGroupDetailsStore } from "@/features/groups";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { GroupSummary } from "@/features/groups/components/GroupSummary";
+import { useGroupSummaryStore } from "@/features/groups/store/group-summary.store";
 
 function GroupDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const id = (params?.id as string) ?? null;
+
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
   const [settlementFormOpen, setSettlementFormOpen] = useState(false);
+  const [editingExpense, setEditingExpense] =
+    useState<TransactionItemExpense | null>(null);
+  const [deletingExpense, setDeletingExpense] =
+    useState<TransactionItemExpense | null>(null);
   const [settlementDefaults, setSettlementDefaults] = useState<{
     payerId: string;
-    receiverId: string;
-    amount: number;
+    receiverId: string | null;
+    amount: number | null;
   } | null>(null);
-  const sessionUser = useAuthStore((s) => s.sessionUser);
+  const [highlightedExpenseId, setHighlightedExpenseId] = useState<
+    string | null
+  >(null);
 
-  const {
-    group,
-    members,
-    membersCardOpen: isMembersCardOpen,
-    loading,
-    error,
-    fetchGroupDetails,
-  } = useGroupDetailsStore();
+  const sessionUser = useAuthStore((s) => s.sessionUser);
+  const { group, members, loading, error, fetchGroupDetails } =
+    useGroupDetailsStore();
 
   const formMembers = useMemo((): ExpenseFormMember[] => {
     return members
@@ -62,6 +76,40 @@ function GroupDetailPage() {
   useEffect(() => {
     if (id) fetchGroupDetails(id);
   }, [id, fetchGroupDetails]);
+
+  const processedSettleRef = useRef<string | null>(null);
+  const processedHighlightRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const settle = searchParams.get("settle");
+    const highlight = searchParams.get("highlight");
+
+    if (settle && settle !== processedSettleRef.current && sessionUser?.id) {
+      processedSettleRef.current = settle;
+      // "open" is the sentinel for notifications without a stored referenceId
+      const isUUID = settle !== "open" && /^[0-9a-f-]{36}$/i.test(settle);
+      setSettlementDefaults({
+        payerId: sessionUser.id,
+        receiverId: isUUID ? settle : null,
+        amount: null,
+      });
+      setSettlementFormOpen(true);
+      router.replace(pathname, { scroll: false });
+    }
+
+    if (highlight && highlight !== processedHighlightRef.current) {
+      processedHighlightRef.current = highlight;
+      setHighlightedExpenseId(highlight);
+      useTransactionListStore.getState().revealItem(highlight);
+      router.replace(pathname, { scroll: false });
+    }
+  }, [searchParams, sessionUser?.id, pathname, router]);
+
+  // Re-run revealItem once transaction items finish loading (async fetch).
+  useEffect(() => {
+    if (!highlightedExpenseId) return;
+    useTransactionListStore.getState().revealItem(highlightedExpenseId);
+  }, [highlightedExpenseId]);
 
   const handleRetry = useCallback(() => {
     if (id) fetchGroupDetails(id);
@@ -99,72 +147,89 @@ function GroupDetailPage() {
   }
 
   return (
-    <div className="p-4 lg:p-10 space-y-8">
-      <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-        <div className="flex-1 min-w-0 space-y-8">
-          <GroupDetailsCard group={group} members={members} />
-        </div>
-        <motion.div
-          className="overflow-hidden shrink-0 sticky top-8"
-          initial={false}
-          animate={{
-            width: isMembersCardOpen ? 380 : 0,
-            opacity: isMembersCardOpen ? 1 : 0,
-          }}
-          transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-          style={{ minWidth: 0 }}
-        >
-          <AnimatePresence initial={false} mode="wait">
-            {isMembersCardOpen && (
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-                className="w-[380px]"
-              >
-                <MembersCard
-                  members={members}
-                  createdBy={group.createdby}
-                  groupId={group.id}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 items-start">
-        <div className="lg:col-span-2">
-          <GroupSummary
-            groupId={group.id}
-            currentUserId={sessionUser?.id ?? null}
-            onSettleWith={(payload) => {
-              setSettlementDefaults(payload);
-              setSettlementFormOpen(true);
-            }}
-          />
-        </div>
-        <div className="md:col-span-1 lg:col-span-3">
-          <TransactionList
-            groupid={group.id}
-            currentUserId={sessionUser?.id ?? null}
-            onOpenExpense={() => setExpenseFormOpen(true)}
-            onOpenSettlement={() => {
-              setSettlementDefaults(null);
-              setSettlementFormOpen(true);
-            }}
-          />
+    <div className="grid grid-cols-12 gap-6 p-4 lg:p-10">
+      <div className="col-span-12 lg:col-span-9 space-y-6">
+        <GroupDetailsCard group={group} members={members} />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 space-y-6">
+            <GroupSummary
+              groupId={group.id}
+              currentUserId={sessionUser?.id ?? null}
+              onSettleWith={(payload) => {
+                setSettlementDefaults(payload);
+                setSettlementFormOpen(true);
+              }}
+            />
+          </div>
+          <div className="lg:col-span-8 space-y-6">
+            <TransactionList
+              groupid={group.id}
+              currentUserId={sessionUser?.id ?? null}
+              highlightId={highlightedExpenseId}
+              onOpenExpense={() => {
+                setEditingExpense(null);
+                setExpenseFormOpen(true);
+              }}
+              onOpenSettlement={() => {
+                setSettlementDefaults(null);
+                setSettlementFormOpen(true);
+              }}
+              onEditExpense={(item) => {
+                setEditingExpense(item);
+                setExpenseFormOpen(true);
+              }}
+              onDeleteExpense={(item) => setDeletingExpense(item)}
+            />
+          </div>
         </div>
       </div>
-
+      <div className="col-span-12 lg:col-span-3 space-y-6">
+        <MembersCard
+          members={members}
+          createdBy={group.createdby}
+          groupId={group.id}
+        />
+      </div>
       <ExpenseForm
         isOpen={expenseFormOpen}
-        onClose={() => setExpenseFormOpen(false)}
+        onClose={() => {
+          setExpenseFormOpen(false);
+          setEditingExpense(null);
+        }}
         groupId={group.id}
         members={formMembers}
         currentUserId={sessionUser?.id ?? null}
+        mode={editingExpense ? "edit" : "create"}
+        initialExpense={editingExpense}
         onSuccess={(item) => {
-          useTransactionListStore.getState().prependExpenseItem(item);
+          const store = useTransactionListStore.getState();
+          if (editingExpense) {
+            store.updateExpenseItem(item);
+          } else {
+            store.prependExpenseItem(item);
+          }
+          useGroupSummaryStore
+            .getState()
+            .fetchGroupSummary(group.id, { force: true });
+          setEditingExpense(null);
+        }}
+        onDelete={(expenseId) => {
+          useTransactionListStore.getState().removeExpenseItem(expenseId);
+          useGroupSummaryStore
+            .getState()
+            .fetchGroupSummary(group.id, { force: true });
+          setEditingExpense(null);
+          setExpenseFormOpen(false);
+        }}
+      />
+      <DeleteExpenseModal
+        expense={deletingExpense}
+        onClose={() => setDeletingExpense(null)}
+        onSuccess={(expenseId) => {
+          useTransactionListStore.getState().removeExpenseItem(expenseId);
+          useGroupSummaryStore
+            .getState()
+            .fetchGroupSummary(group.id, { force: true });
         }}
       />
       <SettlementForm
@@ -181,6 +246,9 @@ function GroupDetailPage() {
         initialAmount={settlementDefaults?.amount ?? null}
         onSuccess={(item) => {
           useTransactionListStore.getState().prependSettlementItem(item);
+          useGroupSummaryStore
+            .getState()
+            .fetchGroupSummary(group.id, { force: true });
         }}
       />
     </div>

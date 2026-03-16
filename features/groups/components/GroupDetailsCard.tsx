@@ -18,9 +18,6 @@ import {
 } from "lucide-react";
 import { PremiumMeshBackground } from "./Skeleton";
 import { toast } from "sonner";
-import { MemberStack } from "@/components/common/MemberStack";
-
-const MAX_STACK_AVATARS = 4;
 
 interface GroupDetailsCardProps {
   group: Group;
@@ -29,15 +26,6 @@ interface GroupDetailsCardProps {
 
 export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
   const members = useGroupDetailsStore((s) => s.members);
-  const membersCardOpen = useGroupDetailsStore((s) => s.membersCardOpen);
-  const toggleMembersCardOpen = useGroupDetailsStore(
-    (s) => s.toggleMembersCardOpen,
-  );
-  const memberList = members.filter(
-    (m): m is GroupDetailMember => m.type === "member" && m.user != null,
-  );
-  const displayMembers = memberList.slice(0, MAX_STACK_AVATARS);
-  const extraCount = memberList.length - MAX_STACK_AVATARS;
   const { copiedCode, copyInviteCode } = useCopyInviteCode();
   const setGroupDetails = useGroupDetailsStore((s) => s.setGroupDetails);
   const {
@@ -236,16 +224,6 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                   </button>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={toggleMembersCardOpen}
-                className="flex -space-x-2 mt-3 pt-3 group/btn"
-                aria-expanded={membersCardOpen}
-                aria-label={membersCardOpen ? "Hide members" : "Show members"}
-              >
-                <MemberStack members={members} />
-              </button>
             </div>
           </div>
         </div>

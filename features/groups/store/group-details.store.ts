@@ -10,8 +10,6 @@ import { getGroupDetails } from "../services/group-details.service";
 interface GroupDetailsState {
   group: Group | null;
   members: GroupDetailMember[];
-  membersCardOpen: boolean;
-  toggleMembersCardOpen: () => void;
   loading: boolean;
   error: string | null;
   groupId: string | null;
@@ -34,9 +32,6 @@ interface GroupDetailsState {
 export const useGroupDetailsStore = create<GroupDetailsState>()((set, get) => ({
   group: null,
   members: [],
-  membersCardOpen: true,
-  toggleMembersCardOpen: () =>
-    set((s) => ({ membersCardOpen: !s.membersCardOpen })),
   loading: false,
   error: null,
   groupId: null,
@@ -115,7 +110,6 @@ export const useGroupDetailsStore = create<GroupDetailsState>()((set, get) => ({
     set({
       group: null,
       members: [],
-      membersCardOpen: true,
       error: null,
       groupId: null,
     }),

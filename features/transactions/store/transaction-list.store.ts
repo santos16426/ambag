@@ -26,6 +26,9 @@ interface TransactionListState {
   cleartransactionlist: () => void;
   prependExpenseItem: (item: TransactionItemExpense) => void;
   prependSettlementItem: (item: TransactionItemSettlement) => void;
+  updateExpenseItem: (item: TransactionItemExpense) => void;
+  removeExpenseItem: (expenseId: string) => void;
+  revealItem: (id: string) => void;
 }
 
 export const useTransactionListStore = create<TransactionListState>()(
@@ -117,6 +120,28 @@ export const useTransactionListStore = create<TransactionListState>()(
         return {
           items: [item, ...state.items],
         };
+      }),
+
+    updateExpenseItem: (item) =>
+      set((state) => {
+        if (state.groupid !== item.groupid) return state;
+        return {
+          items: state.items.map((existing) =>
+            existing.id === item.id ? item : existing,
+          ),
+        };
+      }),
+
+    removeExpenseItem: (expenseId) =>
+      set((state) => ({
+        items: state.items.filter((item) => item.id !== expenseId),
+      })),
+
+    revealItem: (id) =>
+      set((state) => {
+        const idx = state.items.findIndex((item) => item.id === id);
+        if (idx === -1 || state.visiblecount > idx) return state;
+        return { visiblecount: idx + 1 };
       }),
   }),
 );

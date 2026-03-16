@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ExpenseFormMember,
   ExpenseSuccessReceiptData,
@@ -14,7 +14,11 @@ import {
   EXPENSE_FORM_BALANCE_THRESHOLD,
   EXPENSE_FORM_CURRENCY,
 } from "../constants/expense-form";
-import { submitExpense } from "../services/transaction-submit.service";
+import {
+  submitExpense,
+  updateExpense,
+  type ExpenseUpdatePayload,
+} from "../services/transaction-submit.service";
 
 function memberToTransactionUser(m: ExpenseFormMember): TransactionUser {
   return { id: m.id, name: m.fullname, avatar: null };
@@ -37,6 +41,8 @@ interface UseExpenseFormParams {
   currentUserId?: string | null;
   onClose: () => void;
   onSuccess?: (item: TransactionItemExpense) => void;
+  mode?: "create" | "edit";
+  initialExpense?: TransactionItemExpense | null;
 }
 
 export function useExpenseForm({
@@ -45,6 +51,8 @@ export function useExpenseForm({
   currentUserId,
   onClose,
   onSuccess,
+  mode,
+  initialExpense,
 }: UseExpenseFormParams) {
   const [step, setStep] = useState<"form" | "success">("form");
   const [description, setDescription] = useState("");
@@ -84,6 +92,58 @@ export function useExpenseForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currencySymbol = EXPENSE_FORM_CURRENCY.symbol;
+
+  useEffect(() => {
+    if (!initialExpense) return;
+
+    const baseDate =
+      initialExpense.expensedate ?? initialExpense.date ?? new Date().toISOString();
+    const formattedDate = baseDate.split("T")[0] ?? new Date().toISOString().split("T")[0];
+    const initialSplitType =
+      (initialExpense.splittype as SplitType | null) ?? "equally";
+
+    setStep("form");
+    setDescription(initialExpense.name ?? "");
+    setAmount(initialExpense.amount.toFixed(2));
+    setExpenseDate(formattedDate);
+    setSplitType(initialSplitType);
+    setError(null);
+    setIsSubmitting(false);
+    setItems([]);
+    setReimbursementTarget(null);
+
+    if (initialExpense.payors.length <= 1) {
+      const payerId = initialExpense.payors[0]?.id;
+      setPayMode("single");
+      setSinglePayer(
+        payerId ??
+          (currentUserId && members.some((m) => m.id === currentUserId)
+            ? currentUserId
+            : members[0]?.id ?? null),
+      );
+      setMultiplePayers({});
+    } else {
+      setPayMode("multiple");
+      const perPayerAmount =
+        initialExpense.amount / Math.max(initialExpense.payors.length, 1);
+      const nextMultiple: Record<string, string> = {};
+      initialExpense.payors.forEach((p) => {
+        nextMultiple[p.id] = perPayerAmount.toFixed(2);
+      });
+      setMultiplePayers(nextMultiple);
+    }
+
+    const participantIds = new Set(
+      (initialExpense.participants ?? []).map((p) => p.id),
+    );
+    setDeselectedMembers(
+      new Set(members.map((m) => m.id).filter((id) => !participantIds.has(id))),
+    );
+
+    if (receiptImage) URL.revokeObjectURL(receiptImage);
+    setReceiptImage(null);
+    setReceiptImageUrl(initialExpense.receipturl);
+  }, [initialExpense, currentUserId, members, receiptImage]);
 
   const selectedMembers = useMemo(
     () =>
@@ -358,7 +418,13 @@ export function useExpenseForm({
       receiptUrl: receiptImage,
     };
 
-    const { data, error } = await submitExpense(payload);
+    const isEditMode = typeof initialExpense !== "undefined" && initialExpense !== null;
+    const { data, error } = isEditMode
+      ? await updateExpense({
+          ...(payload as ExpenseUpdatePayload),
+          expenseId: initialExpense.id,
+        })
+      : await submitExpense(payload);
 
     if (error) {
       setError(error.message);
@@ -368,7 +434,7 @@ export function useExpenseForm({
 
     const row = data?.expense;
     if (!row) {
-      setError("Failed to create expense");
+      setError(isEditMode ? "Failed to update expense" : "Failed to create expense");
       setIsSubmitting(false);
       return;
     }
