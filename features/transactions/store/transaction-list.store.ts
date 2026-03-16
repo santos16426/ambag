@@ -28,6 +28,8 @@ interface TransactionListState {
   prependSettlementItem: (item: TransactionItemSettlement) => void;
   updateExpenseItem: (item: TransactionItemExpense) => void;
   removeExpenseItem: (expenseId: string) => void;
+  updateSettlementItem: (item: TransactionItemSettlement) => void;
+  removeSettlementItem: (settlementId: string) => void;
   revealItem: (id: string) => void;
 }
 
@@ -135,6 +137,21 @@ export const useTransactionListStore = create<TransactionListState>()(
     removeExpenseItem: (expenseId) =>
       set((state) => ({
         items: state.items.filter((item) => item.id !== expenseId),
+      })),
+
+    updateSettlementItem: (item) =>
+      set((state) => {
+        if (state.groupid !== item.groupid) return state;
+        return {
+          items: state.items.map((existing) =>
+            existing.id === item.id ? item : existing,
+          ),
+        };
+      }),
+
+    removeSettlementItem: (settlementId) =>
+      set((state) => ({
+        items: state.items.filter((item) => item.id !== settlementId),
       })),
 
     revealItem: (id) =>

@@ -8,7 +8,7 @@ import {
 } from "../constants";
 import { TransactionListStatus } from "./TransactionListStatus";
 import { TransactionListItems } from "./TransactionListItems";
-import type { TransactionItemExpense } from "../types";
+import type { TransactionItemExpense, TransactionItemSettlement } from "../types";
 
 interface TransactionListProps {
   groupid: string;
@@ -19,6 +19,8 @@ interface TransactionListProps {
   onOpenSettlement?: () => void;
   onEditExpense?: (item: TransactionItemExpense) => void;
   onDeleteExpense?: (item: TransactionItemExpense) => void;
+  onEditSettlement?: (item: TransactionItemSettlement) => void;
+  onDeleteSettlement?: (item: TransactionItemSettlement) => void;
 }
 
 export function TransactionList({
@@ -30,6 +32,8 @@ export function TransactionList({
   onOpenSettlement,
   onEditExpense,
   onDeleteExpense,
+  onEditSettlement,
+  onDeleteSettlement,
 }: TransactionListProps) {
   const { items, total, hasmore, loadmore, loading, error, refetch } =
     useTransactionList(groupid, { pagesize });
@@ -92,6 +96,8 @@ export function TransactionList({
               highlightId={highlightId}
               onEditExpense={onEditExpense}
               onDeleteExpense={onDeleteExpense}
+              onEditSettlement={onEditSettlement}
+              onDeleteSettlement={onDeleteSettlement}
             />
             {hasmore && (
               <div className="flex justify-center pt-4">

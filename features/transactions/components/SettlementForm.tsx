@@ -8,7 +8,10 @@ import {
   FORM_CARD_TRANSITION,
   FORM_OVERLAY_TRANSITION,
 } from "../constants/forms";
-import { submitSettlement } from "../services/transaction-submit.service";
+import {
+  submitSettlement,
+  updateSettlement,
+} from "../services/transaction-submit.service";
 import type { TransactionItemSettlement, TransactionUser } from "../types";
 import { SettlementSuccessView } from "./SettlementSuccessView";
 import type { SettlementSuccessData } from "./SettlementSuccessView";
@@ -33,6 +36,7 @@ interface SettlementFormProps {
   initialPayerId?: string | null;
   initialReceiverId?: string | null;
   initialAmount?: number | null;
+  editingSettlement?: TransactionItemSettlement | null;
 }
 
 export function SettlementForm({
@@ -45,7 +49,9 @@ export function SettlementForm({
   initialPayerId,
   initialReceiverId,
   initialAmount,
+  editingSettlement,
 }: SettlementFormProps) {
+  const isEditMode = editingSettlement != null;
   const defaultFrom = currentUserId ?? members[0]?.id ?? "";
   const defaultTo =
     members.find((m) => m.id !== defaultFrom)?.id ?? members[0]?.id ?? "";
@@ -63,9 +69,16 @@ export function SettlementForm({
     null,
   );
 
-  // When opening with preset values (from GroupSummary, etc.), prime the form.
+  // When opening, prime the form from editingSettlement or initial props.
   useEffect(() => {
     if (!isOpen) return;
+
+    if (editingSettlement) {
+      setFromUser(editingSettlement.payerid);
+      setToUser(editingSettlement.receiverid);
+      setAmount(editingSettlement.amount.toString());
+      return;
+    }
 
     if (initialPayerId) {
       setFromUser(initialPayerId);
@@ -84,6 +97,7 @@ export function SettlementForm({
     }
   }, [
     isOpen,
+    editingSettlement,
     initialPayerId,
     initialReceiverId,
     initialAmount,
@@ -121,6 +135,30 @@ export function SettlementForm({
     setError(null);
     setIsSubmitting(true);
 
+    if (isEditMode && editingSettlement) {
+      const { data: updatedRow, error: updateError } = await updateSettlement({
+        settlementId: editingSettlement.id,
+        amount: amountNum,
+      });
+
+      setIsSubmitting(false);
+
+      if (updateError || !updatedRow) {
+        setError(updateError?.message ?? "Failed to update settlement");
+        return;
+      }
+
+      const item: TransactionItemSettlement = {
+        ...editingSettlement,
+        amount: Number(updatedRow.amount),
+        receipturl: updatedRow.receipturl ?? null,
+      };
+
+      onSuccess?.(item);
+      resetAndClose();
+      return;
+    }
+
     const { data, error } = await submitSettlement({
       groupId,
       payerId: fromUser,
@@ -155,15 +193,6 @@ export function SettlementForm({
       payer: fromMember ? memberToTransactionUser(fromMember) : null,
       receiver: toMember ? memberToTransactionUser(toMember) : null,
     };
-
-    console.log("[SettlementForm] submit", {
-      groupId,
-      amount: amountNum,
-      date: settledAt,
-      payerid: fromUser,
-      receiverid: toUser,
-      item,
-    });
 
     setSuccessData({
       fromUserId: fromUser,
@@ -206,10 +235,10 @@ export function SettlementForm({
                 <div className="p-8 pb-6 flex justify-between items-start">
                   <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">
-                      Record Settlement
+                      {isEditMode ? "Edit Settlement" : "Record Settlement"}
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      Who paid whom
+                      {isEditMode ? "Update settlement amount" : "Who paid whom"}
                     </p>
                   </div>
                   <button
@@ -231,7 +260,8 @@ export function SettlementForm({
                       <select
                         value={fromUser}
                         onChange={(e) => handleFromChange(e.target.value)}
-                        className="w-full h-12 px-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white text-sm font-bold text-slate-900 outline-none transition-all appearance-none"
+                        disabled={isEditMode}
+                        className="w-full h-12 px-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white text-sm font-bold text-slate-900 outline-none transition-all appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {members.map((m) => (
                           <option key={m.id} value={m.id}>
@@ -247,7 +277,8 @@ export function SettlementForm({
                       <select
                         value={toUser}
                         onChange={(e) => setToUser(e.target.value)}
-                        className="w-full h-12 px-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white text-sm font-bold text-slate-900 outline-none transition-all appearance-none"
+                        disabled={isEditMode}
+                        className="w-full h-12 px-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white text-sm font-bold text-slate-900 outline-none transition-all appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {members
                           .filter((m) => m.id !== fromUser)
@@ -323,7 +354,7 @@ export function SettlementForm({
                       ) : (
                         <>
                           <Check className="w-4 h-4" />
-                          Record Settlement
+                          {isEditMode ? "Save Changes" : "Record Settlement"}
                         </>
                       )}
                     </button>

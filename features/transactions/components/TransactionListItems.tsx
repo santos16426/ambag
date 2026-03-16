@@ -1,6 +1,10 @@
 "use client";
 
-import type { TransactionItem, TransactionItemExpense } from "../types";
+import type {
+  TransactionItem,
+  TransactionItemExpense,
+  TransactionItemSettlement,
+} from "../types";
 import { useIsInvolved } from "../hooks/useIsInvolved";
 import { ExpenseCardItem } from "./ExpenseCardItem";
 import { SettlementCardItem } from "./SettlementCardItem";
@@ -11,6 +15,8 @@ interface TransactionListItemsProps {
   highlightId?: string | null;
   onEditExpense?: (item: TransactionItemExpense) => void;
   onDeleteExpense?: (item: TransactionItemExpense) => void;
+  onEditSettlement?: (item: TransactionItemSettlement) => void;
+  onDeleteSettlement?: (item: TransactionItemSettlement) => void;
 }
 
 export function TransactionListItems({
@@ -19,6 +25,8 @@ export function TransactionListItems({
   highlightId,
   onEditExpense,
   onDeleteExpense,
+  onEditSettlement,
+  onDeleteSettlement,
 }: TransactionListItemsProps) {
   const { isInvolved } = useIsInvolved();
 
@@ -48,6 +56,8 @@ export function TransactionListItems({
               item={item}
               currentUserId={currentUserId}
               isinvolved={involved}
+              onClick={onEditSettlement ? () => onEditSettlement(item) : undefined}
+              onDelete={onDeleteSettlement ? () => onDeleteSettlement(item) : undefined}
             />
           </div>
         );

@@ -147,6 +147,66 @@ export async function deleteExpense(
   return { success: data === true, error: null };
 }
 
+export interface DeleteSettlementResult {
+  success: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hard-deletes a settlement via deleteSettlement RPC.
+ */
+export async function deleteSettlement(
+  settlementId: string,
+): Promise<DeleteSettlementResult> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc("deletesettlement", {
+    settlementid: settlementId,
+  });
+
+  if (error) {
+    return { success: false, error };
+  }
+
+  return { success: data === true, error: null };
+}
+
+export interface SettlementUpdatePayload {
+  settlementId: string;
+  amount: number;
+  paymentMethodId?: string | null;
+  receiptUrl?: string | null;
+}
+
+export interface UpdateSettlementResult {
+  data: RawSettlementRow | null;
+  error: Error | null;
+}
+
+/**
+ * Updates a settlement via updateSettlement RPC.
+ */
+export async function updateSettlement(
+  payload: SettlementUpdatePayload,
+): Promise<UpdateSettlementResult> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc("updatesettlement", {
+    settlementid: payload.settlementId,
+    payload: {
+      amount: payload.amount,
+      paymentMethodId: payload.paymentMethodId ?? null,
+      receiptUrl: payload.receiptUrl ?? null,
+    },
+  });
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  return { data: data as RawSettlementRow, error: null };
+}
+
 /**
  * Creates a settlement via createSettlement RPC.
  */

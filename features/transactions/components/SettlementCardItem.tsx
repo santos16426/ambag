@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, EyeOff } from "lucide-react";
+import { ArrowRight, CheckCircle2, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { formatDisplayDate } from "@/lib/utils";
 import { TRANSACTION_LIST_LABELS } from "../constants";
 import type { TransactionItemSettlement } from "../types";
@@ -14,12 +14,16 @@ interface SettlementCardItemProps {
   item: TransactionItemSettlement;
   currentUserId?: string | null;
   isinvolved: boolean;
+  onClick?: () => void;
+  onDelete?: () => void;
 }
 
 export function SettlementCardItem({
   item,
   currentUserId,
   isinvolved,
+  onClick,
+  onDelete,
 }: SettlementCardItemProps) {
   const date = formatDisplayDate(item.date);
   const fromName =
@@ -32,7 +36,39 @@ export function SettlementCardItem({
       : displayName(item.receiver) || "Recipient";
 
   return (
-    <div className="bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer">
+    <div
+      className="bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer group"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
+    >
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all"
+          aria-label="Delete settlement"
+        >
+          <Trash2 size={14} className="text-red-400" />
+        </button>
+      )}
+      {onClick && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          className="absolute top-4 right-10 z-10 p-2 rounded-full opacity-0 group-hover:opacity-100 hover:bg-slate-50 transition-all"
+          aria-label="Edit settlement"
+        >
+          <Pencil size={14} className="text-slate-400" />
+        </button>
+      )}
       {!isinvolved && (
         <div className="absolute top-3 left-4 z-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-100">
           <EyeOff size={10} className="text-slate-400 shrink-0" />

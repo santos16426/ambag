@@ -18,6 +18,7 @@ export {
   type SplitType,
 } from "./components/ExpenseForm";
 export { DeleteExpenseModal } from "./components/DeleteExpenseModal";
+export { DeleteSettlementModal } from "./components/DeleteSettlementModal";
 export {
   SettlementForm,
   type SettlementFormMember,

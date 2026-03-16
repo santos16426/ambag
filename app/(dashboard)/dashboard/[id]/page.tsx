@@ -16,9 +16,11 @@ import {
   ExpenseForm,
   SettlementForm,
   DeleteExpenseModal,
+  DeleteSettlementModal,
   useTransactionListStore,
   type ExpenseFormMember,
   type TransactionItemExpense,
+  type TransactionItemSettlement,
 } from "@/features/transactions";
 import {
   GroupDetailsCardSkeleton,
@@ -47,6 +49,10 @@ function GroupDetailPage() {
     useState<TransactionItemExpense | null>(null);
   const [deletingExpense, setDeletingExpense] =
     useState<TransactionItemExpense | null>(null);
+  const [editingSettlement, setEditingSettlement] =
+    useState<TransactionItemSettlement | null>(null);
+  const [deletingSettlement, setDeletingSettlement] =
+    useState<TransactionItemSettlement | null>(null);
   const [settlementDefaults, setSettlementDefaults] = useState<{
     payerId: string;
     receiverId: string | null;
@@ -179,6 +185,11 @@ function GroupDetailPage() {
                 setExpenseFormOpen(true);
               }}
               onDeleteExpense={(item) => setDeletingExpense(item)}
+              onEditSettlement={(item) => {
+                setEditingSettlement(item);
+                setSettlementFormOpen(true);
+              }}
+              onDeleteSettlement={(item) => setDeletingSettlement(item)}
             />
           </div>
         </div>
@@ -237,6 +248,7 @@ function GroupDetailPage() {
         onClose={() => {
           setSettlementFormOpen(false);
           setSettlementDefaults(null);
+          setEditingSettlement(null);
         }}
         groupId={group.id}
         members={formMembers}
@@ -244,8 +256,25 @@ function GroupDetailPage() {
         initialPayerId={settlementDefaults?.payerId ?? null}
         initialReceiverId={settlementDefaults?.receiverId ?? null}
         initialAmount={settlementDefaults?.amount ?? null}
+        editingSettlement={editingSettlement}
         onSuccess={(item) => {
-          useTransactionListStore.getState().prependSettlementItem(item);
+          const store = useTransactionListStore.getState();
+          if (editingSettlement) {
+            store.updateSettlementItem(item);
+          } else {
+            store.prependSettlementItem(item);
+          }
+          useGroupSummaryStore
+            .getState()
+            .fetchGroupSummary(group.id, { force: true });
+          setEditingSettlement(null);
+        }}
+      />
+      <DeleteSettlementModal
+        settlement={deletingSettlement}
+        onClose={() => setDeletingSettlement(null)}
+        onSuccess={(settlementId) => {
+          useTransactionListStore.getState().removeSettlementItem(settlementId);
           useGroupSummaryStore
             .getState()
             .fetchGroupSummary(group.id, { force: true });
