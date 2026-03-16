@@ -37,6 +37,7 @@ interface SettlementFormProps {
   initialReceiverId?: string | null;
   initialAmount?: number | null;
   editingSettlement?: TransactionItemSettlement | null;
+  maxAmount?: number | null;
 }
 
 export function SettlementForm({
@@ -50,6 +51,7 @@ export function SettlementForm({
   initialReceiverId,
   initialAmount,
   editingSettlement,
+  maxAmount,
 }: SettlementFormProps) {
   const isEditMode = editingSettlement != null;
   const defaultFrom = currentUserId ?? members[0]?.id ?? "";
@@ -159,11 +161,37 @@ export function SettlementForm({
       return;
     }
 
+    let effectiveAmount = amountNum;
+    let extraAmount = 0;
+
+    if (maxAmount != null && amountNum > maxAmount) {
+      const overpay = amountNum - maxAmount;
+      // eslint-disable-next-line no-alert
+      const createExtraTransfer = window.confirm(
+        `You only owe ${EXPENSE_FORM_CURRENCY.symbol}${maxAmount.toFixed(
+          2,
+        )}.\n\nClick OK to settle ${EXPENSE_FORM_CURRENCY.symbol}${maxAmount.toFixed(
+          2,
+        )} and record an extra transfer of ${EXPENSE_FORM_CURRENCY.symbol}${overpay.toFixed(
+          2,
+        )}.\nClick Cancel to adjust the amount to what you owe.`,
+      );
+
+      if (createExtraTransfer) {
+        effectiveAmount = maxAmount;
+        extraAmount = overpay;
+      } else {
+        setAmount(maxAmount.toString());
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const { data, error } = await submitSettlement({
       groupId,
       payerId: fromUser,
       receiverId: toUser,
-      amount: amountNum,
+      amount: effectiveAmount,
       receiptUrl: null,
     });
 
@@ -193,6 +221,16 @@ export function SettlementForm({
       payer: fromMember ? memberToTransactionUser(fromMember) : null,
       receiver: toMember ? memberToTransactionUser(toMember) : null,
     };
+
+    if (extraAmount > 0) {
+      await submitSettlement({
+        groupId,
+        payerId: toUser,
+        receiverId: fromUser,
+        amount: extraAmount,
+        receiptUrl: null,
+      });
+    }
 
     setSuccessData({
       fromUserId: fromUser,

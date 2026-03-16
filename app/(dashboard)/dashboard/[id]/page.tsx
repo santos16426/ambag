@@ -57,6 +57,7 @@ function GroupDetailPage() {
     payerId: string;
     receiverId: string | null;
     amount: number | null;
+    maxAmount: number | null;
   } | null>(null);
   const [highlightedExpenseId, setHighlightedExpenseId] = useState<
     string | null
@@ -98,6 +99,7 @@ function GroupDetailPage() {
         payerId: sessionUser.id,
         receiverId: isUUID ? settle : null,
         amount: null,
+        maxAmount: null,
       });
       setSettlementFormOpen(true);
       router.replace(pathname, { scroll: false });
@@ -161,8 +163,13 @@ function GroupDetailPage() {
             <GroupSummary
               groupId={group.id}
               currentUserId={sessionUser?.id ?? null}
-              onSettleWith={(payload) => {
-                setSettlementDefaults(payload);
+                onSettleWith={(payload) => {
+                  setSettlementDefaults({
+                    payerId: payload.payerId,
+                    receiverId: payload.receiverId,
+                    amount: payload.amount,
+                    maxAmount: payload.maxAmount,
+                  });
                 setSettlementFormOpen(true);
               }}
             />
@@ -256,6 +263,7 @@ function GroupDetailPage() {
         initialPayerId={settlementDefaults?.payerId ?? null}
         initialReceiverId={settlementDefaults?.receiverId ?? null}
         initialAmount={settlementDefaults?.amount ?? null}
+        maxAmount={settlementDefaults?.maxAmount ?? null}
         editingSettlement={editingSettlement}
         onSuccess={(item) => {
           const store = useTransactionListStore.getState();

@@ -18,14 +18,17 @@ import { sendPaymentReminder } from "@/features/notifications";
 import { GROUP_SUMMARY_CURRENCY, GROUP_SUMMARY_LABELS } from "../constants";
 import { useGroupSummary } from "../hooks/useGroupSummary";
 
+interface GroupSummarySettlePayload {
+  payerId: string;
+  receiverId: string;
+  amount: number;
+  maxAmount: number;
+}
+
 interface GroupSummaryProps {
   groupId: string;
   currentUserId?: string | null;
-  onSettleWith?: (payload: {
-    payerId: string;
-    receiverId: string;
-    amount: number;
-  }) => void;
+  onSettleWith?: (payload: GroupSummarySettlePayload) => void;
 }
 
 function formatAmount(amount: number): string {
@@ -274,6 +277,7 @@ export function GroupSummary({
                       payerId: currentUserId,
                       receiverId: item.userId,
                       amount: item.amount,
+                      maxAmount: item.amount,
                     });
                   }
                 }}
