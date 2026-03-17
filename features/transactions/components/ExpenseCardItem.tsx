@@ -38,7 +38,7 @@ export function ExpenseCardItem({
   return (
     <div
       ref={ref}
-      className={`group bg-white border rounded-[28px] mb-3 transition-all relative w-full ${
+      className={`overflow-hidden group bg-white border rounded-[28px] mb-3 transition-all relative w-full ${
         isHighlighted
           ? "border-indigo-300 ring-2 ring-indigo-300 ring-offset-2 shadow-lg shadow-indigo-100"
           : "border-slate-100 hover:border-indigo-100"
@@ -69,14 +69,18 @@ export function ExpenseCardItem({
             >
               <span
                 className={`text-[8px] font-black uppercase tracking-tighter leading-none mb-0.5 ${
-                  isHighlighted ? "text-indigo-400" : "text-slate-400 group-hover:text-indigo-400"
+                  isHighlighted
+                    ? "text-indigo-400"
+                    : "text-slate-400 group-hover:text-indigo-400"
                 }`}
               >
                 {date.month}
               </span>
               <span
                 className={`text-[14px] font-black leading-none ${
-                  isHighlighted ? "text-indigo-900" : "text-slate-900 group-hover:text-indigo-900"
+                  isHighlighted
+                    ? "text-indigo-900"
+                    : "text-slate-900 group-hover:text-indigo-900"
                 }`}
               >
                 {date.day}

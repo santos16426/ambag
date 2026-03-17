@@ -912,6 +912,65 @@ GRANT EXECUTE ON FUNCTION public.deleteExpenseSplit(uuid) TO authenticated;
 -- PAYMENT METHODS
 -- =====================================================================
 
+CREATE OR REPLACE FUNCTION public.getUserSettings(p_user_id uuid DEFAULT auth.uid())
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_profile public.profiles;
+  v_methods jsonb;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'User id is required';
+  END IF;
+
+  SELECT *
+  INTO v_profile
+  FROM public.profiles
+  WHERE id = p_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Profile not found for user %', p_user_id;
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', pm.id,
+        'userid', pm.userid,
+        'type', pm.type,
+        'accountname', pm.accountname,
+        'accountnumber', pm.accountnumber,
+        'banktype', pm.banktype,
+        'qrcodeurl', pm.qrcodeurl
+      )
+      ORDER BY pm.createdat ASC
+    ),
+    '[]'::jsonb
+  )
+  INTO v_methods
+  FROM public.paymentmethods pm
+  WHERE pm.userid = p_user_id;
+
+  RETURN jsonb_build_object(
+    'userdetails',
+    jsonb_build_object(
+      'id', v_profile.id,
+      'fullname', v_profile.fullname,
+      'email', v_profile.email,
+      'avatarurl', v_profile.avatarurl
+    ),
+    'paymentmethods',
+    COALESCE(v_methods, '[]'::jsonb)
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.getUserSettings(uuid) TO authenticated;
+
+
 CREATE OR REPLACE FUNCTION public.createPaymentMethod(payload jsonb)
 RETURNS public.paymentMethods
 LANGUAGE plpgsql
@@ -1795,6 +1854,51 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.getImageUploadPath(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.saveImageUrl(jsonb) TO authenticated;
+
+
+-- =====================================================================
+-- STORAGE: AVATARS BUCKET (PUBLIC PROFILE IMAGES)
+-- =====================================================================
+-- Bucket: avatars
+-- Path convention: "<user_id>/<filename>"
+-- - Insert/Update: only the owning authenticated user (matches first path segment)
+-- - Select: public (avatars are safe to be publicly readable)
+
+-- Create bucket if it does not exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow authenticated users to upload their own avatar objects
+CREATE POLICY "avatars-upload-own"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND split_part(name, '/', 1) = auth.uid()::text
+);
+
+-- Allow authenticated users to update their own avatar objects
+CREATE POLICY "avatars-update-own"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'avatars'
+  AND split_part(name, '/', 1) = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND split_part(name, '/', 1) = auth.uid()::text
+);
+
+-- Public read access for avatar images
+CREATE POLICY "avatars-read-public"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'avatars');
 
 -- =====================================================================
 -- USER GROUPS SUMMARY (creator from public.profiles only)

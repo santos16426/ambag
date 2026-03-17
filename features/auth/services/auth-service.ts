@@ -69,7 +69,16 @@ export async function fetchProfile(
   if (data == null) return { data: null, error: null };
   const row = Array.isArray(data) ? data[0] : data;
   if (row == null) return { data: null, error: null };
-  return { data: row as Profile, error: null };
+  const profile = row as Profile;
+
+  if (profile.avatarurl) {
+    const { data: publicUrl } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(profile.avatarurl);
+    profile.avatarurl = publicUrl.publicUrl ?? profile.avatarurl;
+  }
+
+  return { data: profile, error: null };
 }
 
 export function isLoginMode(mode: AuthMode) {

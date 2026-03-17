@@ -34,6 +34,15 @@ function mapRpcGroupToGroup(rpc: GroupDetailsPayload["group"]): Group {
 function mapRpcMemberToMember(
   m: GroupDetailsPayload["members"][number],
 ): GroupDetailMember {
+  const avatarPath = m.user?.avatarurl ?? null;
+  let avatarurl: string | null = avatarPath;
+
+  if (avatarPath) {
+    const supabase = createClient();
+    const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
+    avatarurl = data.publicUrl ?? avatarPath;
+  }
+
   return {
     type: m.type as GroupDetailMember["type"],
     id: m.id,
@@ -44,7 +53,7 @@ function mapRpcMemberToMember(
           id: m.user.id,
           email: m.user.email,
           fullname: m.user.fullname,
-          avatarurl: m.user.avatarurl,
+          avatarurl,
         }
       : null,
     email: m.email,

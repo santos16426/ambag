@@ -88,9 +88,38 @@ export async function getTransactionList(
     return { items: [], error };
   }
 
+  function mapUserAvatar(
+    user: TransactionUser | null | undefined,
+  ): TransactionUser | null {
+    if (!user?.avatar) return user ?? null;
+    const { data: publicUrl } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(user.avatar);
+    return {
+      ...user,
+      avatar: publicUrl.publicUrl ?? user.avatar,
+    };
+  }
+
+  function mapUserArray(
+    users: TransactionUser[] | null | undefined,
+  ): TransactionUser[] {
+    if (!Array.isArray(users)) return [];
+    return users.map((u) => mapUserAvatar(u) as TransactionUser);
+  }
+
   const raw = (data as { items?: RpcFeedItem[] } | null)?.items;
   const items: TransactionItem[] = Array.isArray(raw)
-    ? raw.map(mapFeedItem)
+    ? raw.map((item) =>
+        mapFeedItem({
+          ...item,
+          createdby: mapUserAvatar(item.createdby ?? null) ?? null,
+          payors: mapUserArray(item.payors ?? null),
+          participants: mapUserArray(item.participants ?? null),
+          payer: mapUserAvatar(item.payer ?? null),
+          receiver: mapUserAvatar(item.receiver ?? null),
+        }),
+      )
     : [];
 
   return { items, error: null };

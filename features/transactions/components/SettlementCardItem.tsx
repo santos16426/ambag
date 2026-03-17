@@ -37,7 +37,7 @@ export function SettlementCardItem({
 
   return (
     <div
-      className="bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer group"
+      className={`overflow-hidden bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer group ${!isinvolved ? "opacity-50" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -70,7 +70,7 @@ export function SettlementCardItem({
         </button>
       )}
       {!isinvolved && (
-        <div className="absolute top-3 left-4 z-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-100">
+        <div className="absolute top-0 left-0 z-10 flex items-center gap-1 px-3 py-2 rounded-tl-xl rounded-br-xl bg-slate-100 border border-slate-100">
           <EyeOff size={10} className="text-slate-400 shrink-0" />
           <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none">
             Not involved

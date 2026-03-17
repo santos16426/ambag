@@ -137,11 +137,15 @@ const Header = () => {
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary text-primary-foreground text-sm font-bold border-2 border-card shadow-sm ml-1 md:ml-2 overflow-hidden hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
             >
-              {(
-                profile?.fullname?.[0] ||
-                profile?.email?.[0] ||
-                "A"
-              ).toUpperCase()}
+              {profile?.avatarurl ? (
+                <img
+                  src={profile.avatarurl}
+                  alt={profile.fullname ?? profile.email ?? "Profile"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                (profile?.fullname?.[0] || profile?.email?.[0] || "A").toUpperCase()
+              )}
             </button>
 
             {/* Profile Dropdown Menu */}

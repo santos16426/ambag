@@ -47,8 +47,16 @@ function MemberRow({
     <div className="flex items-center justify-between group p-2 -mx-2 hover:bg-slate-50 rounded-2xl transition-all">
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
-          <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold">
-            {getInitials(user.fullname, user.email)}
+          <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
+            {user.avatarurl ? (
+              <img
+                src={user.avatarurl}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getInitials(user.fullname, user.email)
+            )}
           </div>
           <div className="absolute -bottom-1 -right-1 rounded-full p-0.5 border-2 border-white shadow-sm bg-emerald-500">
             <Check className="w-2.5 h-2.5 text-white" />
