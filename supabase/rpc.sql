@@ -972,14 +972,14 @@ GRANT EXECUTE ON FUNCTION public.getUserSettings(uuid) TO authenticated;
 
 
 CREATE OR REPLACE FUNCTION public.createPaymentMethod(payload jsonb)
-RETURNS public.paymentMethods
+RETURNS public.paymentmethods
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  new_row public.paymentMethods;
+  new_row public.paymentmethods;
 BEGIN
-  INSERT INTO public."paymentMethods" (userId, type, accountName, accountNumber, bankType, qrCodeUrl)
+  INSERT INTO public.paymentmethods (userid, type, accountname, accountnumber, banktype, qrcodeurl)
   VALUES (
     COALESCE((payload->>'userId')::uuid, auth.uid()),
     payload->>'type',
@@ -995,14 +995,14 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.updatePaymentMethod(paymentMethodId uuid, payload jsonb)
-RETURNS public.paymentMethods
+RETURNS public.paymentmethods
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  updated_row public.paymentMethods;
+  updated_row public.paymentmethods;
 BEGIN
-  UPDATE public.paymentMethods
+  UPDATE public.paymentmethods
   SET
     type = COALESCE(payload->>'type', type),
     accountName = COALESCE(payload->>'accountName', accountName),
@@ -1017,12 +1017,12 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.getPaymentMethodById(paymentMethodId uuid)
-RETURNS public.paymentMethods
+RETURNS public.paymentmethods
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT *
-  FROM public.paymentMethods
+  FROM public.paymentmethods
   WHERE id = paymentMethodId;
 $$;
 
@@ -2317,7 +2317,8 @@ BEGIN
             jsonb_build_object(
               'id', p.id,
               'name', p.fullname,
-              'avatar', p.avatarurl
+              'avatar', p.avatarurl,
+              'amountpaid', ep.amountpaid
             )
           ),
           '[]'::jsonb
@@ -2332,14 +2333,15 @@ BEGIN
             jsonb_build_object(
               'id', p.id,
               'name', p.fullname,
-              'avatar', p.avatarurl
+              'avatar', p.avatarurl,
+              'amountowed', es.amountowed
             )
           ),
           '[]'::jsonb
         )
-        FROM public.expenseparticipants ep
-        JOIN public.profiles p ON p.id = ep.userid
-        WHERE ep.expenseid = e.id
+        FROM public.expensesplits es
+        JOIN public.profiles p ON p.id = es.userid
+        WHERE es.expenseid = e.id
       ) AS participants
     FROM public.expenses e
     LEFT JOIN public.profiles creator ON creator.id = e.createdby

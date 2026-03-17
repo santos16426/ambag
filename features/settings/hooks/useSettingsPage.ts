@@ -17,13 +17,21 @@ import {
   fetchSettingsSnapshot,
   updateProfileSettings,
   uploadProfileAvatar,
+  uploadQrImage,
 } from "../services/settings-service";
+import {
+  bankMethodSchema,
+  qrMethodSchema,
+} from "../schema/payment-method.schema";
 
 interface NewMethodState {
   provider: string;
   accountName: string;
   accountNumber: string;
+  // qrImage is the preview URL used in the UI
   qrImage: string | null;
+  // qrPath is the storage path saved in Supabase
+  qrPath: string | null;
 }
 
 interface UseSettingsPageResult {
@@ -33,7 +41,11 @@ interface UseSettingsPageResult {
   isEditingProfile: boolean;
   isModalOpen: boolean;
   modalType: SettingsModalType;
+  modalStep: "form" | "success";
   newMethod: NewMethodState;
+  createdMethod: PayoutMethod | null;
+  isSubmittingMethod: boolean;
+  submitMethodError: string | null;
   avatarInputRef: React.RefObject<HTMLInputElement | null>;
   qrInputRef: React.RefObject<HTMLInputElement | null>;
   startEditingProfile: () => void;
@@ -45,6 +57,7 @@ interface UseSettingsPageResult {
   closeModal: () => void;
   setNewMethodField: (field: keyof NewMethodState, value: string | null) => void;
   confirmAddMethod: () => void;
+  completeMethodSuccess: () => void;
   removeMethod: (id: string) => void;
   handleAvatarChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleQrUpload: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -61,12 +74,19 @@ export function useSettingsPage(): UseSettingsPageResult {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<SettingsModalType>(null);
+  const [modalStep, setModalStep] = useState<"form" | "success">("form");
   const [newMethod, setNewMethod] = useState<NewMethodState>({
     provider: "",
     accountName: "",
     accountNumber: "",
     qrImage: null,
+    qrPath: null,
   });
+  const [createdMethod, setCreatedMethod] = useState<PayoutMethod | null>(null);
+  const [isSubmittingMethod, setIsSubmittingMethod] = useState(false);
+  const [submitMethodError, setSubmitMethodError] = useState<string | null>(
+    null,
+  );
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const qrInputRef = useRef<HTMLInputElement | null>(null);
@@ -142,33 +162,45 @@ export function useSettingsPage(): UseSettingsPageResult {
   function openBankModal() {
     setModalType("bank");
     setIsModalOpen(true);
+    setModalStep("form");
+    setSubmitMethodError(null);
+    setCreatedMethod(null);
     setNewMethod({
       provider: "",
-      accountName: "",
+      accountName: profile?.fullName ?? "",
       accountNumber: "",
       qrImage: null,
+      qrPath: null,
     });
   }
 
   function openQrModal() {
     setModalType("qr");
     setIsModalOpen(true);
+    setModalStep("form");
+    setSubmitMethodError(null);
+    setCreatedMethod(null);
     setNewMethod({
       provider: "",
       accountName: "",
       accountNumber: "",
       qrImage: null,
+      qrPath: null,
     });
   }
 
   function closeModal() {
     setIsModalOpen(false);
     setModalType(null);
+    setModalStep("form");
+    setSubmitMethodError(null);
+    setCreatedMethod(null);
     setNewMethod({
       provider: "",
       accountName: "",
       accountNumber: "",
       qrImage: null,
+      qrPath: null,
     });
   }
 
@@ -182,7 +214,22 @@ export function useSettingsPage(): UseSettingsPageResult {
   function confirmAddMethod() {
     if (!modalType) return;
 
+    setSubmitMethodError(null);
+
     if (modalType === "bank") {
+      const validation = bankMethodSchema.safeParse({
+        provider: newMethod.provider,
+        accountName: newMethod.accountName,
+        accountNumber: newMethod.accountNumber,
+      });
+
+      if (!validation.success) {
+        const firstIssue = validation.error.issues[0];
+        setSubmitMethodError(firstIssue?.message ?? "Invalid bank details");
+        return;
+      }
+
+      setIsSubmittingMethod(true);
       createBankPaymentMethod({
         bankType: newMethod.provider,
         accountName: newMethod.accountName,
@@ -190,24 +237,52 @@ export function useSettingsPage(): UseSettingsPageResult {
       })
         .then((created) => {
           setPayoutMethods((prev) => [...prev, created]);
-          closeModal();
+          setCreatedMethod(created);
+          setModalStep("success");
         })
-        .catch(() => {
-          closeModal();
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Failed to add bank method";
+          setSubmitMethodError(message);
+        })
+        .finally(() => {
+          setIsSubmittingMethod(false);
         });
       return;
     }
 
-    if (!newMethod.qrImage) return;
+    if (!newMethod.qrPath) {
+      const validation = qrMethodSchema.safeParse({
+        qrImage: newMethod.qrPath ?? "",
+      });
+      if (!validation.success) {
+        const firstIssue = validation.error.issues[0];
+        setSubmitMethodError(firstIssue?.message ?? "QR image is required");
+      }
+      return;
+    }
 
-    createQrPaymentMethod(newMethod.qrImage)
+    setIsSubmittingMethod(true);
+    createQrPaymentMethod(newMethod.qrPath)
       .then((created) => {
         setPayoutMethods((prev) => [...prev, created]);
-        closeModal();
+        setCreatedMethod(created);
+        setModalStep("success");
       })
-      .catch(() => {
-        closeModal();
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : "Failed to add QR method";
+        setSubmitMethodError(message);
+      })
+      .finally(() => {
+        setIsSubmittingMethod(false);
       });
+  }
+
+  function completeMethodSuccess() {
+    closeModal();
   }
 
   function removeMethod(id: string) {
@@ -238,18 +313,24 @@ export function useSettingsPage(): UseSettingsPageResult {
 
   function handleQrUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    const userId = sessionUser?.id;
+    if (!file || !userId) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const qrImage = typeof reader.result === "string" ? reader.result : null;
-      if (!qrImage) return;
-      setNewMethod((prev) => ({
-        ...prev,
-        qrImage,
-      }));
-    };
-    reader.readAsDataURL(file);
+    uploadQrImage(userId, file)
+      .then((result) => {
+        setNewMethod((prev) => ({
+          ...prev,
+          // Use a local object URL for immediate preview
+          qrImage: URL.createObjectURL(file),
+          // Persist only the storage path; signed URLs come from the backend
+          qrPath: result.path,
+        }));
+      })
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : "Failed to upload QR image";
+        setSubmitMethodError(message);
+      });
   }
 
   return {
@@ -259,7 +340,11 @@ export function useSettingsPage(): UseSettingsPageResult {
     isEditingProfile,
     isModalOpen,
     modalType,
+    modalStep,
     newMethod,
+    createdMethod,
+    isSubmittingMethod,
+    submitMethodError,
     avatarInputRef,
     qrInputRef,
     startEditingProfile,
@@ -271,6 +356,7 @@ export function useSettingsPage(): UseSettingsPageResult {
     closeModal,
     setNewMethodField,
     confirmAddMethod,
+    completeMethodSuccess,
     removeMethod,
     handleAvatarChange,
     handleQrUpload,

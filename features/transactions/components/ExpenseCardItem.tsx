@@ -6,9 +6,11 @@ import { formatDisplayDate } from "@/lib/utils";
 import { AvatarStack } from "./AvatarStack";
 import { TRANSACTION_LIST_LABELS } from "../constants";
 import type { TransactionItemExpense } from "../types";
+import { usePerExpenseAmounts } from "../hooks/usePerExpenseAmounts";
 
 interface ExpenseCardItemProps {
   item: TransactionItemExpense;
+  currentUserId?: string | null;
   isinvolved: boolean;
   isHighlighted?: boolean;
   onClick?: () => void;
@@ -17,6 +19,7 @@ interface ExpenseCardItemProps {
 
 export function ExpenseCardItem({
   item,
+  currentUserId,
   isinvolved,
   isHighlighted = false,
   onClick,
@@ -26,6 +29,7 @@ export function ExpenseCardItem({
   const date = formatDisplayDate(item.expensedate ?? item.date);
   const payors = item.payors ?? [];
   const participants = item.participants ?? [];
+  const amounts = usePerExpenseAmounts(item, currentUserId);
 
   useEffect(() => {
     if (!isHighlighted || !ref.current) return;
@@ -100,11 +104,20 @@ export function ExpenseCardItem({
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-          <AvatarStack users={payors} label={TRANSACTION_LIST_LABELS.paidBy} />
-          <AvatarStack
-            users={participants}
-            label={TRANSACTION_LIST_LABELS.splitWith}
-          />
+          <div className="flex items-center gap-3">
+            <AvatarStack
+              users={payors}
+              label={TRANSACTION_LIST_LABELS.paidBy}
+              collect={isinvolved ? amounts.collect : null}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <AvatarStack
+              users={participants}
+              label={TRANSACTION_LIST_LABELS.splitWith}
+              owed={isinvolved ? amounts.owed : null}
+            />
+          </div>
         </div>
       </button>
 

@@ -144,7 +144,11 @@ const Header = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                (profile?.fullname?.[0] || profile?.email?.[0] || "A").toUpperCase()
+                (
+                  profile?.fullname?.[0] ||
+                  profile?.email?.[0] ||
+                  "A"
+                ).toUpperCase()
               )}
             </button>
 
@@ -167,14 +171,14 @@ const Header = () => {
                   <User className="w-4 h-4" />
                   <span className="text-sm font-medium">My Profile</span>
                 </Link>
-                <Link
+                {/* <Link
                   href="/settings?tab=appearance"
                   onClick={() => setShowProfileMenu(false)}
                   className="w-full flex items-center gap-4 px-6 py-3 hover:bg-muted transition-colors text-muted-foreground"
                 >
                   <Palette className="w-4 h-4" />
                   <span className="text-sm font-medium">Appearance</span>
-                </Link>
+                </Link> */}
                 <div className="h-px bg-border my-2 mx-6" />
                 <button
                   onClick={() => {

@@ -40,6 +40,7 @@ export function TransactionListItems({
             <div key={`expense-${item.id}`} className="w-full text-left">
               <ExpenseCardItem
                 item={item}
+                currentUserId={currentUserId}
                 isinvolved={involved}
                 isHighlighted={item.id === highlightId}
                 onClick={() => onEditExpense?.(item)}

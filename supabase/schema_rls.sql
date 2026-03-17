@@ -1442,7 +1442,8 @@ VALUES
 ('expense-receipts','expense-receipts',false),
 ('settlement-receipts','settlement-receipts',false),
 ('avatars','avatars',true),
-('group-images','group-images',false)
+('group-images','group-images',false),
+('qr-codes','qr-codes',true)
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -1699,4 +1700,35 @@ FOR UPDATE
 USING (
   bucket_id = 'group-images'
   AND owner = auth.uid()
+);
+
+
+-- ==============================================================
+-- QR CODES
+-- path: qr-codes/{userId}/{file}
+-- ==============================================================
+DROP POLICY IF EXISTS "View qr codes" ON storage.objects;
+CREATE POLICY "View qr codes"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id = 'qr-codes'
+);
+
+DROP POLICY IF EXISTS "Upload qr codes" ON storage.objects;
+CREATE POLICY "Upload qr codes"
+ON storage.objects
+FOR INSERT
+WITH CHECK (
+  bucket_id = 'qr-codes'
+  AND split_part(name,'/',1) = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Delete qr codes" ON storage.objects;
+CREATE POLICY "Delete qr codes"
+ON storage.objects
+FOR DELETE
+USING (
+  bucket_id = 'qr-codes'
+  AND split_part(name,'/',1) = auth.uid()::text
 );

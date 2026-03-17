@@ -1,4 +1,4 @@
-import { AVATARS_BUCKET } from "@/constants/storage";
+import { AVATARS_BUCKET, QR_CODES_BUCKET } from "@/constants/storage";
 import { createClient } from "@/lib/supabase/client";
 import type {
   BankPayoutMethod,
@@ -56,20 +56,32 @@ export async function fetchSettingsSnapshot(
     profile.avatarUrl = data.publicUrl ?? null;
   }
 
-  const payoutMethods: PayoutMethod[] = payload.paymentmethods.map((method) =>
-    method.type === "bank"
-      ? ({
+  const payoutMethods: PayoutMethod[] = await Promise.all(
+    payload.paymentmethods.map(async (method) => {
+      if (method.type === "bank") {
+        return {
           id: method.id,
           type: "bank",
           bankType: method.banktype,
           accountName: method.accountname,
           accountNumber: method.accountnumber ?? "",
-        } as BankPayoutMethod)
-      : {
-          id: method.id,
-          type: "qr",
-          qrImage: method.qrcodeurl,
-        },
+        } as BankPayoutMethod;
+      }
+
+      let qrImage: string | null = null;
+      if (method.qrcodeurl) {
+        const { data: signed } = await supabase.storage
+          .from(QR_CODES_BUCKET)
+          .createSignedUrl(method.qrcodeurl, 60 * 60);
+        qrImage = signed?.signedUrl ?? null;
+      }
+
+      return {
+        id: method.id,
+        type: "qr",
+        qrImage,
+      };
+    }),
   );
 
   return {
@@ -131,6 +143,27 @@ export async function uploadProfileAvatar(
     path,
     signedUrl: signed?.signedUrl ?? null,
     error: null,
+  };
+}
+
+export async function uploadQrImage(
+  userId: string,
+  file: File,
+): Promise<{ path: string }> {
+  const supabase = createClient();
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(QR_CODES_BUCKET)
+    .upload(path, file, { cacheControl: "3600", upsert: true });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  return {
+    path,
   };
 }
 
@@ -207,10 +240,18 @@ export async function createQrPaymentMethod(
 
   const row = Array.isArray(data) ? data[0] : data;
 
+  let signedUrl: string | null = null;
+  if (row.qrcodeurl) {
+    const { data: signed } = await supabase.storage
+      .from(QR_CODES_BUCKET)
+      .createSignedUrl(row.qrcodeurl, 60 * 60);
+    signedUrl = signed?.signedUrl ?? null;
+  }
+
   return {
     id: row.id,
     type: "qr",
-    qrImage: row.qrcodeurl,
+    qrImage: signedUrl,
   };
 }
 

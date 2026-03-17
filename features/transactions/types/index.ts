@@ -4,6 +4,10 @@ export interface TransactionUser {
   id: string;
   name: string | null;
   avatar: string | null;
+  amountPaid?: number | null;
+  amountpaid?: number | null;
+  amountOwed?: number | null;
+  amountowed?: number | null;
 }
 
 /** Common fields for both expense and settlement items. */
