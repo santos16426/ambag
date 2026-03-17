@@ -15,6 +15,8 @@ import {
 import type { TransactionItemSettlement, TransactionUser } from "../types";
 import { SettlementSuccessView } from "./SettlementSuccessView";
 import type { SettlementSuccessData } from "./SettlementSuccessView";
+import { useRecipientPaymentMethods } from "../hooks/useRecipientPaymentMethods";
+import { SettlementPaymentMethods } from "./SettlementPaymentMethods";
 
 export interface SettlementFormMember {
   id: string;
@@ -108,6 +110,13 @@ export function SettlementForm({
     fromUser,
     toUser,
   ]);
+
+  const {
+    methods: paymentMethods,
+    selectedMethodId,
+    isLoading: isLoadingMethods,
+    setSelectedMethodId,
+  } = useRecipientPaymentMethods(isOpen ? toUser : null);
 
   const amountNum = parseFloat(amount) || 0;
   const fromMember = members.find((m) => m.id === fromUser);
@@ -276,7 +285,9 @@ export function SettlementForm({
                       {isEditMode ? "Edit Settlement" : "Record Settlement"}
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {isEditMode ? "Update settlement amount" : "Who paid whom"}
+                      {isEditMode
+                        ? "Update settlement amount"
+                        : "Who paid whom"}
                     </p>
                   </div>
                   <button
@@ -328,6 +339,13 @@ export function SettlementForm({
                       </select>
                     </div>
                   </div>
+
+                  <SettlementPaymentMethods
+                    methods={paymentMethods}
+                    selectedMethodId={selectedMethodId}
+                    isLoading={isLoadingMethods}
+                    onChangeSelected={setSelectedMethodId}
+                  />
 
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">
