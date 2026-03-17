@@ -267,7 +267,7 @@ export function SettlementForm({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={FORM_OVERLAY_TRANSITION}
-          className="fixed inset-0 z-100 overflow-y-auto bg-[#F8F9FD]/98 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] overflow-y-auto bg-[#F8F9FD]/98 backdrop-blur-md flex items-start justify-center p-4 pt-8"
         >
           <AnimatePresence mode="wait">
             {step === "form" ? (
@@ -277,7 +277,7 @@ export function SettlementForm({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 4 }}
                 transition={FORM_CARD_TRANSITION}
-                className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden"
+                className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden max-h-[calc(100vh-3rem)] flex flex-col"
               >
                 <div className="p-8 pb-6 flex justify-between items-start">
                   <div>
@@ -300,7 +300,10 @@ export function SettlementForm({
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-6">
+                <form
+                  onSubmit={handleSubmit}
+                  className="px-8 pb-8 space-y-6 overflow-y-auto"
+                >
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">

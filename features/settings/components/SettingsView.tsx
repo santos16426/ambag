@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, Camera, Pencil, ShieldCheck, Save } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Camera,
+  Pencil,
+  Save,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 
 import { useSettingsPage } from "../hooks/useSettingsPage";
 import { PaymentMethodsSection } from "./PaymentMethodsSection";
@@ -57,13 +65,22 @@ export function SettingsView() {
   return (
     <div className="w-full min-h-screen p-6 md:p-10 flex justify-center bg-slate-50/30">
       <div className="w-full max-w-2xl space-y-12 pb-24">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-            Settings
-          </h1>
-          <p className="text-slate-500 font-medium">
-            Manage your personal information and payout preferences.
-          </p>
+        <div className="space-y-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400 hover:text-slate-700 transition-colors"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back to Home
+          </Link>
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+              Settings
+            </h1>
+            <p className="text-slate-500 font-medium">
+              Manage your personal information and payout preferences.
+            </p>
+          </div>
         </div>
 
         <section className="space-y-4">
@@ -207,9 +224,7 @@ export function SettingsView() {
         onChangeAccountNumber={(value) =>
           setNewMethodField("accountNumber", value)
         }
-        onChangeAccountName={(value) =>
-          setNewMethodField("accountName", value)
-        }
+        onChangeAccountName={(value) => setNewMethodField("accountName", value)}
         onSubmit={confirmAddMethod}
         onSuccess={() => {
           completeMethodSuccess();
