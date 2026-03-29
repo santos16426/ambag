@@ -11,22 +11,40 @@ import {
   UserPlus,
   Plus,
 } from "lucide-react";
+import Link from "next/link";
 
 import { useAuthStore } from "@/features/auth/store/auth.store";
-import { useDashboardGroups } from "@/features/dashboard";
+import {
+  useDashboardFinancialSummary,
+  useDashboardGroups,
+} from "@/features/dashboard";
 import GroupCard from "@/features/dashboard/components/GroupCard";
 import GroupCardLoading from "@/features/dashboard/components/GroupCardLoading";
 import GroupForm from "@/features/dashboard/components/GroupForm";
 import JoinGroupForm from "@/features/dashboard/components/JoinGroupForm";
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 const Dashboard = () => {
   const { profile } = useAuthStore();
   const { groups, loading } = useDashboardGroups();
+  const { summary, loading: summaryLoading } =
+    useDashboardFinancialSummary(groups);
   const [search, setSearch] = useState("");
   const [isJoinGroupFormOpen, setIsJoinGroupFormOpen] = useState(false);
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(search.toLowerCase()),
+  );
+  const visibleGroupSummaries = summary.groupsummary.filter(
+    (group) => group.topay > 0 || group.tocollect > 0,
   );
 
   return (
@@ -58,7 +76,7 @@ const Dashboard = () => {
                 Total Net Worth (Pools)
               </p>
               <h2 className="text-5xl font-black tracking-tighter">
-                ₱3,249.50
+                {summaryLoading ? "..." : formatCurrency(summary.totalnetworth)}
               </h2>
             </div>
             <div className="flex gap-8 mt-8">
@@ -69,7 +87,11 @@ const Dashboard = () => {
                     Collect
                   </span>
                 </div>
-                <p className="text-xl font-black">₱4,500.00</p>
+                <p className="text-xl font-black">
+                  {summaryLoading
+                    ? "..."
+                    : formatCurrency(summary.totaltocollect)}
+                </p>
               </div>
               <div className="w-px h-10 bg-slate-800 self-center" />
               <div>
@@ -79,7 +101,9 @@ const Dashboard = () => {
                     Pay
                   </span>
                 </div>
-                <p className="text-xl font-black">₱1,250.50</p>
+                <p className="text-xl font-black">
+                  {summaryLoading ? "..." : formatCurrency(summary.totaltopay)}
+                </p>
               </div>
             </div>
           </div>
@@ -87,17 +111,49 @@ const Dashboard = () => {
 
         <div className="bg-white rounded-[3rem] border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
           <div>
-            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4">
+            {/* <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4">
               <CreditCard className="w-6 h-6" />
-            </div>
+            </div> */}
             <h3 className="font-black text-slate-900">Quick Pay</h3>
             <p className="text-xs text-slate-400 font-medium">
               Instantly settle with your most active group.
             </p>
           </div>
-          <button className="w-full py-4 bg-slate-50 hover:bg-slate-100 rounded-2xl font-black text-xs text-slate-600 transition-all">
-            SETTLE NOW
-          </button>
+          <div className="mt-4 space-y-2 max-h-52 overflow-auto pr-1">
+            {summaryLoading ? (
+              <p className="text-xs text-slate-400 font-medium py-2">
+                Loading balances...
+              </p>
+            ) : visibleGroupSummaries.length === 0 ? (
+              <p className="text-xs text-slate-400 font-medium py-2">
+                No payable balances yet.
+              </p>
+            ) : (
+              visibleGroupSummaries.map((group) => (
+                <Link
+                  key={group.id}
+                  href={`/dashboard/${group.id}`}
+                  className="block rounded-2xl border border-slate-100 hover:border-orange-200 px-3 py-2 transition-all"
+                >
+                  <p className="text-xs font-bold text-slate-800 truncate">
+                    {group.groupname}
+                  </p>
+                  <div className="mt-1 space-y-0.5">
+                    {group.topay > 0 && (
+                      <p className="text-[11px] font-black text-rose-500">
+                        Pay: {formatCurrency(group.topay)}
+                      </p>
+                    )}
+                    {group.tocollect > 0 && (
+                      <p className="text-[11px] font-black text-emerald-600">
+                        Collect: {formatCurrency(group.tocollect)}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
