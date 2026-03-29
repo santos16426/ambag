@@ -40,6 +40,7 @@ function toGroup(summary: RpcGroup): Group {
     id: summary.id,
     name: summary.name,
     description: summary.description,
+    archivedat: summary.archivedat,
     createdby: summary.createdbyid,
     invitecode: summary.invitecode,
     imageurl: summary.imageurl ?? null,

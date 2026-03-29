@@ -22,6 +22,7 @@ interface MembersCardProps {
   members: GroupDetailMember[];
   createdBy?: string;
   groupId?: string;
+  isArchived?: boolean;
 }
 
 function MemberRow({
@@ -144,7 +145,12 @@ function PendingInviteRow({
   );
 }
 
-export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
+export function MembersCard({
+  members,
+  createdBy,
+  groupId,
+  isArchived = false,
+}: MembersCardProps) {
   const { sessionUser } = useAuthStore();
   const currentUserId = sessionUser?.id;
   const fetchGroupDetails = useGroupDetailsStore((s) => s.fetchGroupDetails);
@@ -161,7 +167,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
     currentUserId !== undefined &&
     createdBy === currentUserId;
 
-  const canShowAddMode = Boolean(groupId && isOwner);
+  const canShowAddMode = Boolean(groupId && isOwner && !isArchived);
 
   function getAddDisabledReason(result: MemberInvite): string | null {
     const emailLower = result.email.toLowerCase();
@@ -193,7 +199,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
   }
 
   async function handleSubmitAddMembers() {
-    if (selectedMembers.length === 0 || !groupId) return;
+    if (isArchived || selectedMembers.length === 0 || !groupId) return;
 
     setIsSubmitting(true);
     setAddError(null);
@@ -211,7 +217,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
   }
 
   async function handleRemoveMember(memberId: string) {
-    if (!groupId) return;
+    if (isArchived || !groupId) return;
     setRemovingId(memberId);
     setMembersError(null);
 
@@ -226,7 +232,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
   }
 
   async function handleCancelInvitation(invitationId: string) {
-    if (!groupId) return;
+    if (isArchived || !groupId) return;
     setRemovingId(invitationId);
     setMembersError(null);
 
@@ -351,6 +357,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
                     createdBy != null && member.user?.id === createdBy
                   }
                   canRemove={
+                    !isArchived &&
                     isOwner &&
                     createdBy != null &&
                     member.user?.id !== createdBy
@@ -363,7 +370,7 @@ export function MembersCard({ members, createdBy, groupId }: MembersCardProps) {
                 <PendingInviteRow
                   key={member.id}
                   member={member}
-                  canRemove={isOwner}
+                  canRemove={!isArchived && isOwner}
                   onRemove={handleCancelInvitation}
                   isRemoving={removingId === member.id}
                 />

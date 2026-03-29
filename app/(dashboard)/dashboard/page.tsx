@@ -72,10 +72,10 @@ const Dashboard = () => {
           <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-linear-to-l from-orange-500/20 to-transparent" />
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-                Total Net Worth (Pools)
+              <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                Total Net Worth
               </p>
-              <h2 className="text-5xl font-black tracking-tighter">
+              <h2 className="text-8xl font-black tracking-tighter">
                 {summaryLoading ? "..." : formatCurrency(summary.totalnetworth)}
               </h2>
             </div>
@@ -83,11 +83,11 @@ const Dashboard = () => {
               <div>
                 <div className="flex items-center gap-2 text-emerald-400 mb-1">
                   <ArrowUpRight className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-[12px] font-black uppercase tracking-widest">
                     Collect
                   </span>
                 </div>
-                <p className="text-xl font-black">
+                <p className="text-[25px] font-black">
                   {summaryLoading
                     ? "..."
                     : formatCurrency(summary.totaltocollect)}
@@ -97,11 +97,11 @@ const Dashboard = () => {
               <div>
                 <div className="flex items-center gap-2 text-rose-400 mb-1">
                   <ArrowDownLeft className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-[12px] font-black uppercase tracking-widest">
                     Pay
                   </span>
                 </div>
-                <p className="text-xl font-black">
+                <p className="text-[25px] font-black">
                   {summaryLoading ? "..." : formatCurrency(summary.totaltopay)}
                 </p>
               </div>

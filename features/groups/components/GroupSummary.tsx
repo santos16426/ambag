@@ -29,6 +29,7 @@ interface GroupSummaryProps {
   groupId: string;
   currentUserId?: string | null;
   onSettleWith?: (payload: GroupSummarySettlePayload) => void;
+  isArchived?: boolean;
 }
 
 function formatAmount(amount: number): string {
@@ -101,6 +102,7 @@ export function GroupSummary({
   groupId,
   currentUserId,
   onSettleWith,
+  isArchived = false,
 }: GroupSummaryProps) {
   const {
     loading,
@@ -121,6 +123,7 @@ export function GroupSummary({
   const [remindedIds, setRemindedIds] = useState<Set<string>>(new Set());
 
   async function handleRemind(toUserId: string, amount: number) {
+    if (isArchived) return;
     if (remindingId || remindedIds.has(toUserId)) return;
     setRemindingId(toUserId);
     const { error: reminderError } = await sendPaymentReminder({
@@ -273,10 +276,17 @@ export function GroupSummary({
                 key={`${item.userId}-${index}`}
                 style={{ animationDelay: `${index * 40}ms` }}
                 className={`animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 ${
-                  item.side === "owing" ? "cursor-pointer" : "cursor-default"
+                  item.side === "owing" && !isArchived
+                    ? "cursor-pointer"
+                    : "cursor-default"
                 }`}
                 onClick={() => {
-                  if (item.side === "owing" && currentUserId && onSettleWith) {
+                  if (
+                    !isArchived &&
+                    item.side === "owing" &&
+                    currentUserId &&
+                    onSettleWith
+                  ) {
                     onSettleWith({
                       payerId: currentUserId,
                       receiverId: item.userId,
@@ -332,7 +342,7 @@ export function GroupSummary({
                   {item.side === "owed" ? (
                     <button
                       type="button"
-                      disabled={isReminding || isReminded}
+                      disabled={isArchived || isReminding || isReminded}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemind(item.userId, item.amount);

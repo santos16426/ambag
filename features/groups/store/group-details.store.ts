@@ -24,7 +24,11 @@ interface GroupDetailsState {
   ) => void;
   setGroupDetails: (
     groupId: string,
-    patch: { name?: string; description?: string | null },
+    patch: {
+      name?: string;
+      description?: string | null;
+      archivedat?: string | null;
+    },
   ) => void;
   clearGroupDetails: () => void;
 }
@@ -100,6 +104,9 @@ export const useGroupDetailsStore = create<GroupDetailsState>()((set, get) => ({
               ...(patch.name !== undefined && { name: patch.name }),
               ...(patch.description !== undefined && {
                 description: patch.description,
+              }),
+              ...(patch.archivedat !== undefined && {
+                archivedat: patch.archivedat,
               }),
             },
           }

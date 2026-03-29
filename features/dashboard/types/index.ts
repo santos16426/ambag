@@ -10,6 +10,7 @@ export interface Group {
   id: string;
   name: string;
   description: string | null;
+  archivedat?: string | null;
   createdby: string;
   invitecode: string | null;
   imageurl: string | null;

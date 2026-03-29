@@ -7,7 +7,7 @@ import {
   useSearchParams,
   usePathname,
 } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { Archive } from "lucide-react";
 
 import GroupDetailsCard from "@/features/groups/components/GroupDetailsCard";
 import { MembersCard } from "@/features/groups/components/MembersCard";
@@ -90,8 +90,14 @@ function GroupDetailPage() {
   useEffect(() => {
     const settle = searchParams.get("settle");
     const highlight = searchParams.get("highlight");
+    const isGroupArchived = group?.archivedat != null;
 
-    if (settle && settle !== processedSettleRef.current && sessionUser?.id) {
+    if (
+      !isGroupArchived &&
+      settle &&
+      settle !== processedSettleRef.current &&
+      sessionUser?.id
+    ) {
       processedSettleRef.current = settle;
       // "open" is the sentinel for notifications without a stored referenceId
       const isUUID = settle !== "open" && /^[0-9a-f-]{36}$/i.test(settle);
@@ -111,7 +117,7 @@ function GroupDetailPage() {
       useTransactionListStore.getState().revealItem(highlight);
       router.replace(pathname, { scroll: false });
     }
-  }, [searchParams, sessionUser?.id, pathname, router]);
+  }, [searchParams, sessionUser?.id, pathname, router, group?.archivedat]);
 
   // Re-run revealItem once transaction items finish loading (async fetch).
   useEffect(() => {
@@ -154,8 +160,30 @@ function GroupDetailPage() {
     return <GroupNotFound />;
   }
 
+  const isGroupArchived = group.archivedat != null;
+
   return (
     <div className="grid grid-cols-12 gap-6 p-4 lg:p-10">
+      {isGroupArchived && (
+        <div
+          className="col-span-12 flex gap-4 rounded-[1.75rem] border border-amber-200 bg-linear-to-r from-amber-50 to-amber-50/80 px-5 py-4 shadow-sm shadow-amber-900/5"
+          role="status"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-white text-amber-700">
+            <Archive className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0 pt-0.5">
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-amber-900">
+              This group is archived
+            </p>
+            <p className="mt-1 text-xs font-medium leading-relaxed text-amber-800/85">
+              You can still review activity and balances. Adding or editing expenses,
+              settlements, group details, and members is not available for archived
+              groups.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="col-span-12 lg:col-span-9 space-y-6">
         <GroupDetailsCard group={group} members={members} />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -163,13 +191,15 @@ function GroupDetailPage() {
             <GroupSummary
               groupId={group.id}
               currentUserId={sessionUser?.id ?? null}
-                onSettleWith={(payload) => {
-                  setSettlementDefaults({
-                    payerId: payload.payerId,
-                    receiverId: payload.receiverId,
-                    amount: payload.amount,
-                    maxAmount: payload.maxAmount,
-                  });
+              isArchived={isGroupArchived}
+              onSettleWith={(payload) => {
+                if (isGroupArchived) return;
+                setSettlementDefaults({
+                  payerId: payload.payerId,
+                  receiverId: payload.receiverId,
+                  amount: payload.amount,
+                  maxAmount: payload.maxAmount,
+                });
                 setSettlementFormOpen(true);
               }}
             />
@@ -178,25 +208,36 @@ function GroupDetailPage() {
             <TransactionList
               groupid={group.id}
               currentUserId={sessionUser?.id ?? null}
+              isArchived={isGroupArchived}
               highlightId={highlightedExpenseId}
               onOpenExpense={() => {
+                if (isGroupArchived) return;
                 setEditingExpense(null);
                 setExpenseFormOpen(true);
               }}
               onOpenSettlement={() => {
+                if (isGroupArchived) return;
                 setSettlementDefaults(null);
                 setSettlementFormOpen(true);
               }}
               onEditExpense={(item) => {
+                if (isGroupArchived) return;
                 setEditingExpense(item);
                 setExpenseFormOpen(true);
               }}
-              onDeleteExpense={(item) => setDeletingExpense(item)}
+              onDeleteExpense={(item) => {
+                if (isGroupArchived) return;
+                setDeletingExpense(item);
+              }}
               onEditSettlement={(item) => {
+                if (isGroupArchived) return;
                 setEditingSettlement(item);
                 setSettlementFormOpen(true);
               }}
-              onDeleteSettlement={(item) => setDeletingSettlement(item)}
+              onDeleteSettlement={(item) => {
+                if (isGroupArchived) return;
+                setDeletingSettlement(item);
+              }}
             />
           </div>
         </div>
@@ -206,6 +247,7 @@ function GroupDetailPage() {
           members={members}
           createdBy={group.createdby}
           groupId={group.id}
+          isArchived={isGroupArchived}
         />
       </div>
       <ExpenseForm

@@ -14,6 +14,7 @@ interface TransactionListProps {
   groupid: string;
   pagesize?: number;
   currentUserId?: string | null;
+  isArchived?: boolean;
   highlightId?: string | null;
   onOpenExpense?: () => void;
   onOpenSettlement?: () => void;
@@ -27,6 +28,7 @@ export function TransactionList({
   groupid,
   pagesize = TRANSACTION_LIST_PAGE_SIZE,
   currentUserId = null,
+  isArchived = false,
   highlightId,
   onOpenExpense,
   onOpenSettlement,
@@ -53,7 +55,7 @@ export function TransactionList({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {onOpenExpense && (
+            {!isArchived && onOpenExpense && (
               <button
                 type="button"
                 onClick={onOpenExpense}
@@ -63,7 +65,7 @@ export function TransactionList({
                 {TRANSACTION_LIST_LABELS.addExpense}
               </button>
             )}
-            {onOpenSettlement && (
+            {!isArchived && onOpenSettlement && (
               <button
                 type="button"
                 onClick={onOpenSettlement}
@@ -85,8 +87,8 @@ export function TransactionList({
         ) : items.length === 0 ? (
           <TransactionListStatus
             status="empty"
-            onopenexpense={onOpenExpense}
-            onopensettlement={onOpenSettlement}
+            onopenexpense={isArchived ? undefined : onOpenExpense}
+            onopensettlement={isArchived ? undefined : onOpenSettlement}
           />
         ) : (
           <>
@@ -94,10 +96,10 @@ export function TransactionList({
               items={items}
               currentUserId={currentUserId}
               highlightId={highlightId}
-              onEditExpense={onEditExpense}
-              onDeleteExpense={onDeleteExpense}
-              onEditSettlement={onEditSettlement}
-              onDeleteSettlement={onDeleteSettlement}
+              onEditExpense={isArchived ? undefined : onEditExpense}
+              onDeleteExpense={isArchived ? undefined : onDeleteExpense}
+              onEditSettlement={isArchived ? undefined : onEditSettlement}
+              onDeleteSettlement={isArchived ? undefined : onDeleteSettlement}
             />
             {hasmore && (
               <div className="flex justify-center pt-4">

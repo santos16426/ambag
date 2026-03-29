@@ -18,6 +18,7 @@ function mapRpcGroupToGroup(rpc: GroupDetailsPayload["group"]): Group {
     id: rpc.id,
     name: rpc.name,
     description: rpc.description,
+    archivedat: rpc.archivedat,
     createdby: rpc.createdbyid,
     invitecode: rpc.invitecode,
     imageurl: rpc.imageurl ?? null,
@@ -197,6 +198,7 @@ export async function getSignedGroupImageUrl(
 export interface UpdateGroupDetailsPayload {
   name?: string;
   description?: string | null;
+  archivedAt?: string | null;
 }
 
 /**

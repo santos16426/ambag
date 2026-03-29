@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import type { Group } from "@/features/dashboard/types";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import { useCopyInviteCode } from "@/features/groups/hooks/useCopyInviteCode";
 import { useGroupCoverImageUpload } from "@/features/groups/hooks/useGroupCoverImageUpload";
 import { useGroupDetailsEditing } from "@/features/groups/hooks/useGroupDetailsEditing";
@@ -8,6 +11,7 @@ import { updateGroupDetails } from "@/features/groups/services/group-details.ser
 import { useGroupDetailsStore } from "@/features/groups/store/group-details.store";
 import type { GroupDetailMember } from "@/features/groups/types";
 import {
+  Archive,
   Camera,
   Check,
   Copy,
@@ -26,8 +30,12 @@ interface GroupDetailsCardProps {
 
 export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
   const members = useGroupDetailsStore((s) => s.members);
+  const sessionUser = useAuthStore((s) => s.sessionUser);
   const { copiedCode, copyInviteCode } = useCopyInviteCode();
   const setGroupDetails = useGroupDetailsStore((s) => s.setGroupDetails);
+  const isArchived = group.archivedat != null;
+  const isOwner = sessionUser?.id != null && sessionUser.id === group.createdby;
+  const [isArchiving, setIsArchiving] = useState(false);
   const {
     fileInputRef,
     imageUploading,
@@ -56,6 +64,20 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
     },
   });
 
+  async function handleArchiveGroup() {
+    if (!isOwner || isArchived || isArchiving) return;
+    setIsArchiving(true);
+    const archivedAt = new Date().toISOString();
+    const { error } = await updateGroupDetails(group.id, { archivedAt });
+    setIsArchiving(false);
+    if (error) {
+      toast.error("Failed to archive group");
+      return;
+    }
+    setGroupDetails(group.id, { archivedat: archivedAt });
+    toast.success("Group archived. This group is now read-only.");
+  }
+
   return (
     <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-sm min-h-[220px]">
       <div className="group relative w-full h-[350px] bg-slate-900 overflow-hidden">
@@ -77,7 +99,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={imageUploading || imageRemoving}
+                disabled={isArchived || imageUploading || imageRemoving}
                 className="bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-lg text-white hover:bg-white/20 transition-all shadow-lg disabled:opacity-50"
                 title="Change cover"
               >
@@ -91,7 +113,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  disabled={imageUploading || imageRemoving}
+                  disabled={isArchived || imageUploading || imageRemoving}
                   className="bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-lg text-white hover:bg-red-500/30 transition-all shadow-lg disabled:opacity-50"
                   title="Remove cover"
                   aria-label="Remove cover image"
@@ -126,7 +148,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                   <button
                     type="button"
                     onClick={saveEdit}
-                    disabled={isSaving}
+                    disabled={isArchived || isSaving}
                     className="p-1.5 bg-emerald-500 text-white rounded-md disabled:opacity-50"
                   >
                     {isSaving ? (
@@ -151,6 +173,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                   <button
                     type="button"
                     onClick={() => startEditing("name", group.name)}
+                    disabled={isArchived}
                     className="opacity-0 group-hover/title:opacity-100 p-1 hover:bg-white/10 rounded transition-all"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-white/70" />
@@ -170,7 +193,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                     <button
                       type="button"
                       onClick={saveEdit}
-                      disabled={isSaving}
+                      disabled={isArchived || isSaving}
                       className="p-1.5 bg-emerald-500 text-white rounded-md disabled:opacity-50"
                     >
                       {isSaving ? (
@@ -198,6 +221,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                     onClick={() =>
                       startEditing("description", group.description ?? "")
                     }
+                    disabled={isArchived}
                     className="opacity-0 group-hover/desc:opacity-100 p-1 mt-0.5 hover:bg-white/10 rounded transition-all shrink-0"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-white/70" />
@@ -225,6 +249,21 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
                 </div>
               )}
             </div>
+            {isOwner && !isArchived && (
+              <button
+                type="button"
+                onClick={handleArchiveGroup}
+                disabled={isArchiving}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+              >
+                {isArchiving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Archive className="h-3.5 w-3.5" />
+                )}
+                Archive
+              </button>
+            )}
           </div>
         </div>
       </div>

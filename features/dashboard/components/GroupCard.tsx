@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Check, Copy, CreditCard, User2 } from "lucide-react";
+import { Users, Check, Copy, CreditCard, User2, Archive } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { Group } from "../types";
@@ -31,7 +31,7 @@ const GroupCard = ({ group }: { group: Group }) => {
       }}
       key={group.id}
       whileHover={{ y: -8 }}
-      className="relative w-full group cursor-pointer"
+      className={`relative w-full group cursor-pointer ${group.archivedat ? "grayscale opacity-90 cursor-default" : ""}`}
     >
       {/* The Credit Card Body */}
       <div className="relative z-21 h-full w-full rounded-[2.5rem] bg-slate-950 overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border border-white/10 flex flex-col justify-between transition-all group-hover:shadow-[0_40px_80px_-15px_rgba(107,33,168,0.25)]">
@@ -73,6 +73,12 @@ const GroupCard = ({ group }: { group: Group }) => {
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 drop-shadow-md">
                 {group.userrole === "admin" ? "Owner" : "Member"}
               </span>
+              {group.archivedat && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-400/20 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-100">
+                  <Archive className="h-2.5 w-2.5" />
+                  Archived
+                </span>
+              )}
               <CreditCard className="text-white/20 w-8 h-8" />
             </div>
           </div>
