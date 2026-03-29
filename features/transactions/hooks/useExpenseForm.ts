@@ -133,12 +133,43 @@ export function useExpenseForm({
       setMultiplePayers(nextMultiple);
     }
 
-    const participantIds = new Set(
-      (initialExpense.participants ?? []).map((p) => p.id),
-    );
+    const participantList = initialExpense.participants ?? [];
+    const participantIds = new Set(participantList.map((p) => p.id));
     setDeselectedMembers(
       new Set(members.map((m) => m.id).filter((id) => !participantIds.has(id))),
     );
+
+    const total = initialExpense.amount;
+    const selectedCount = participantList.length;
+
+    if (
+      initialSplitType !== "equally" &&
+      initialSplitType !== "itemized" &&
+      initialSplitType !== "reimbursement" &&
+      selectedCount > 0
+    ) {
+      const baseEqual = total / selectedCount;
+      const amounts = participantList.map(
+        (p) => p.amountOwed ?? p.amountowed ?? 0,
+      );
+      const minPositive = Math.min(...amounts.filter((a) => a > 0)) || 1;
+
+      const nextSplits: Record<string, MemberSplitState> = {};
+      participantList.forEach((p) => {
+        const owed = p.amountOwed ?? p.amountowed ?? 0;
+        nextSplits[p.id] = {
+          user_id: p.id,
+          amount_owed: owed,
+          percentage:
+            total > 0 ? Math.round((owed / total) * 10000) / 100 : 0,
+          shares: Math.round((owed / minPositive) * 100) / 100 || 1,
+          adjustment: Math.round((owed - baseEqual) * 100) / 100,
+        };
+      });
+      setMemberSplits(nextSplits);
+    } else {
+      setMemberSplits({});
+    }
 
     if (receiptImage) URL.revokeObjectURL(receiptImage);
     setReceiptImage(null);
@@ -328,6 +359,7 @@ export function useExpenseForm({
     );
     setMultiplePayers({});
     setSplitType("equally");
+    setMemberSplits({});
     setDeselectedMembers(new Set());
     setReimbursementTarget(null);
     setItems([]);
