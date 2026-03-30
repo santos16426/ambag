@@ -52,6 +52,52 @@ export interface ListGroupMessagesOptions {
 
 const EMPTY_REACTIONS: GroupChatReactionSummary[] = [];
 
+/** Realtime payloads may use lowercase or camelCase column names. */
+function parseRealtimeGroupMessageRow(payloadNew: unknown): GroupMessageRow | null {
+  if (!payloadNew || typeof payloadNew !== "object") return null;
+  const raw = payloadNew as Record<string, unknown>;
+  const id = typeof raw.id === "string" ? raw.id : undefined;
+  const groupid =
+    (typeof raw.groupid === "string" && raw.groupid) ||
+    (typeof raw.groupId === "string" && raw.groupId) ||
+    undefined;
+  const senderid =
+    (typeof raw.senderid === "string" && raw.senderid) ||
+    (typeof raw.senderId === "string" && raw.senderId) ||
+    undefined;
+  const body = typeof raw.body === "string" ? raw.body : undefined;
+  const createdat =
+    (typeof raw.createdat === "string" && raw.createdat) ||
+    (typeof raw.createdAt === "string" && raw.createdAt) ||
+    undefined;
+  const editedRaw = raw.editedat ?? raw.editedAt;
+  const editedat =
+    editedRaw === null || editedRaw === undefined
+      ? null
+      : typeof editedRaw === "string"
+        ? editedRaw
+        : null;
+  const deletedRaw = raw.deletedat ?? raw.deletedAt;
+  const deletedat =
+    deletedRaw === null || deletedRaw === undefined
+      ? null
+      : typeof deletedRaw === "string"
+        ? deletedRaw
+        : null;
+
+  if (!id || !groupid || !senderid || !createdat) return null;
+  if (body === undefined) return null;
+
+  return { id, groupid, senderid, body, createdat, editedat, deletedat };
+}
+
+function groupIdsMatch(left: string, right: string): boolean {
+  return (
+    left.replaceAll("-", "").toLowerCase() ===
+    right.replaceAll("-", "").toLowerCase()
+  );
+}
+
 function mapRowToMessage(
   row: GroupMessageRow,
   senderNamesById: Map<string, string>,
@@ -328,16 +374,28 @@ export function subscribeToGroupMessages(
         event: "INSERT",
         schema: "public",
         table: "groupmessages",
-        filter: `groupid=eq.${groupId}`,
+        // No server-side filter: `groupmessagereactions` uses REPLICA IDENTITY FULL but
+        // `groupmessages` historically did not, which breaks filtered postgres_changes for
+        // INSERTs. RLS still limits events to rows the user can SELECT; we filter to this
+        // thread in the handler. After DB has REPLICA IDENTITY FULL on groupmessages, you
+        // could add filter: `groupid=eq.${groupId}` again to reduce traffic.
       },
       async (payload) => {
-        const row = payload.new as GroupMessageRow;
-        if (!row?.id || row.deletedat) return;
-        const senderNamesById = await getSenderNamesById([row.senderid]);
-        onInsert(mapRowToMessage(row, senderNamesById, EMPTY_REACTIONS));
+        try {
+          const row = parseRealtimeGroupMessageRow(payload.new);
+          if (!row || row.deletedat || !groupIdsMatch(row.groupid, groupId)) return;
+          const senderNamesById = await getSenderNamesById([row.senderid]);
+          onInsert(mapRowToMessage(row, senderNamesById, EMPTY_REACTIONS));
+        } catch (cause) {
+          console.warn("[group-chat] realtime INSERT handler failed:", cause);
+        }
       },
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("[group-chat] messages channel:", status, err);
+      }
+    });
 
   return channel;
 }
@@ -376,7 +434,11 @@ export function subscribeToGroupMessageReactions(
         onChange(messageId ?? null);
       },
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("[group-chat] reactions channel:", status, err);
+      }
+    });
 
   return channel;
 }

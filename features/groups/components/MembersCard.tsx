@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  ChevronRight,
   Crown,
   Mail,
   MessageSquare,
@@ -24,6 +25,10 @@ import {
   cancelGroupInvitation,
   removeGroupMember,
 } from "../services/group-members.service";
+import {
+  subscribeToGroupMessages,
+  unsubscribeFromGroupMessages,
+} from "../services/group-chat.service";
 import type { GroupDetailMember } from "../types";
 import GroupChat from "../components/GroupChat";
 import Image from "next/image";
@@ -173,6 +178,56 @@ export function MembersCard({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "chat">("members");
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const activeTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible" &&
+        activeTabRef.current === "chat"
+      ) {
+        setChatUnreadCount(0);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (!groupId || isArchived) return;
+
+    const channel = subscribeToGroupMessages(groupId, (message) => {
+      const isOwn =
+        currentUserId !== undefined && message.senderId === currentUserId;
+      if (isOwn) return;
+
+      const tab = activeTabRef.current;
+      const pageHidden =
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden";
+
+      if (tab !== "chat" || pageHidden) {
+        setChatUnreadCount((count) => count + 1);
+      }
+    });
+
+    return () => {
+      unsubscribeFromGroupMessages(channel);
+    };
+  }, [groupId, isArchived, currentUserId]);
+
+  function openGroupChatTab() {
+    setIsAddMode(false);
+    setActiveTab("chat");
+    setChatUnreadCount(0);
+  }
 
   const isOwner =
     createdBy != null &&
@@ -279,7 +334,9 @@ export function MembersCard({
       const userId = member.user?.id;
       if (!userId) return nameMap;
       const displayName =
-        member.user?.fullname?.trim() || member.user?.email?.trim() || "Unknown member";
+        member.user?.fullname?.trim() ||
+        member.user?.email?.trim() ||
+        "Unknown member";
       nameMap[userId] = displayName;
       return nameMap;
     },
@@ -314,11 +371,8 @@ export function MembersCard({
         </button>
         <button
           type="button"
-          onClick={() => {
-            setIsAddMode(false);
-            setActiveTab("chat");
-          }}
-          className={`flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+          onClick={openGroupChatTab}
+          className={`relative flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
             activeTab === "chat"
               ? "text-indigo-600 border-b-2 border-indigo-600"
               : "text-slate-400 hover:text-slate-600"
@@ -326,6 +380,11 @@ export function MembersCard({
         >
           <MessageSquare className="w-3.5 h-3.5 shrink-0" />
           Group Chat
+          {chatUnreadCount > 0 && activeTab !== "chat" && (
+            <span className="min-h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-indigo-600 text-[9px] font-black text-white tabular-nums leading-none">
+              {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+            </span>
+          )}
         </button>
       </div>
 

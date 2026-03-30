@@ -248,6 +248,7 @@ function GroupDetailPage() {
       </div>
       <div className="col-span-12 lg:col-span-3 space-y-6">
         <MembersCard
+          key={group.id}
           members={members}
           createdBy={group.createdby}
           groupId={group.id}

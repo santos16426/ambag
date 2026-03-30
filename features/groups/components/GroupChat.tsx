@@ -71,6 +71,25 @@ function upsertMessageById(
   return updatedMessages;
 }
 
+/** After tab sleep or missed realtime, merge server state without dropping optimistic sends. */
+function mergeServerMessagesWithPending(
+  previous: ChatMessage[],
+  server: GroupChatMessage[],
+): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of server) {
+    byId.set(message.id, { ...message, isPending: false });
+  }
+  for (const message of previous) {
+    if (message.isPending && !byId.has(message.id)) {
+      byId.set(message.id, message);
+    }
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+}
+
 export default function GroupChat({
   currentUserId,
   groupId,
@@ -126,6 +145,17 @@ export default function GroupChat({
       })),
     );
   }, [viewerId]);
+
+  const patchMessageReactionsRef = useRef(patchMessageReactions);
+  const refreshVisibleMessageReactionsRef = useRef(refreshVisibleMessageReactions);
+
+  useEffect(() => {
+    patchMessageReactionsRef.current = patchMessageReactions;
+  }, [patchMessageReactions]);
+
+  useEffect(() => {
+    refreshVisibleMessageReactionsRef.current = refreshVisibleMessageReactions;
+  }, [refreshVisibleMessageReactions]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -187,10 +217,10 @@ export default function GroupChat({
         currentGroupId,
         (messageId) => {
           if (messageId) {
-            void patchMessageReactions(messageId);
+            void patchMessageReactionsRef.current(messageId);
             return;
           }
-          void refreshVisibleMessageReactions();
+          void refreshVisibleMessageReactionsRef.current();
         },
       );
     }
@@ -203,7 +233,27 @@ export default function GroupChat({
       if (reactionChannel)
         unsubscribeFromGroupMessageReactions(reactionChannel);
     };
-  }, [groupId, patchMessageReactions, refreshVisibleMessageReactions]);
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const stableGroupId = groupId;
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        const { data, error } = await listGroupMessages(stableGroupId);
+        if (error || !data) return;
+        setMessages((previous) =>
+          mergeServerMessagesWithPending(previous, data ?? []),
+        );
+      })();
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [groupId]);
 
   function handleSendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

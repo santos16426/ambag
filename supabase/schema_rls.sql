@@ -1750,6 +1750,10 @@ CREATE TABLE IF NOT EXISTS public.groupMessages (
 
 ALTER TABLE public.groupMessages ENABLE ROW LEVEL SECURITY;
 
+-- Matches groupMessageReactions: required for reliable Realtime postgres_changes when using filters
+-- (and keeps WAL rows complete for RLS/filter evaluation).
+ALTER TABLE public.groupMessages REPLICA IDENTITY FULL;
+
 DROP POLICY IF EXISTS "Users can view group messages" ON public.groupMessages;
 CREATE POLICY "Users can view group messages"
 ON public.groupMessages
