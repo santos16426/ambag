@@ -1732,3 +1732,146 @@ USING (
   bucket_id = 'qr-codes'
   AND split_part(name,'/',1) = auth.uid()::text
 );
+
+-- ==============================================================
+-- PART 22: Group chat messages table + RLS + realtime
+-- ==============================================================
+
+DROP TABLE IF EXISTS public.groupMessages CASCADE;
+CREATE TABLE IF NOT EXISTS public.groupMessages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  groupId UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
+  senderId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  editedAt TIMESTAMPTZ,
+  deletedAt TIMESTAMPTZ
+);
+
+ALTER TABLE public.groupMessages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view group messages" ON public.groupMessages;
+CREATE POLICY "Users can view group messages"
+ON public.groupMessages
+FOR SELECT
+USING (
+  public.isGroupMember(groupId)
+  AND deletedAt IS NULL
+);
+
+DROP POLICY IF EXISTS "Users can insert group messages" ON public.groupMessages;
+CREATE POLICY "Users can insert group messages"
+ON public.groupMessages
+FOR INSERT
+WITH CHECK (
+  public.isGroupMember(groupId)
+  AND senderId = auth.uid()
+  AND length(trim(body)) > 0
+);
+
+DROP POLICY IF EXISTS "Users can update own group messages" ON public.groupMessages;
+CREATE POLICY "Users can update own group messages"
+ON public.groupMessages
+FOR UPDATE
+USING (
+  senderId = auth.uid()
+  AND public.isGroupMember(groupId)
+)
+WITH CHECK (
+  senderId = auth.uid()
+  AND public.isGroupMember(groupId)
+);
+
+CREATE INDEX IF NOT EXISTS idxGroupMessagesGroupCreatedAt
+  ON public.groupMessages(groupId, createdAt DESC);
+
+CREATE INDEX IF NOT EXISTS idxGroupMessagesSenderId
+  ON public.groupMessages(senderId);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'groupmessages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.groupMessages;
+  END IF;
+END
+$$;
+
+-- ==============================================================
+-- PART 23: Group message reactions (normalized) + RLS + realtime
+-- ==============================================================
+
+DROP TABLE IF EXISTS public.groupMessageReactions CASCADE;
+CREATE TABLE IF NOT EXISTS public.groupMessageReactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  groupMessageId UUID NOT NULL REFERENCES public.groupMessages(id) ON DELETE CASCADE,
+  groupId UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
+  userId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uqGroupMessageReactionUserEmoji UNIQUE (groupMessageId, userId, emoji),
+  CONSTRAINT chkGroupMessageReactionEmojiLength CHECK (
+    length(trim(emoji)) > 0
+    AND char_length(trim(emoji)) <= 32
+  )
+);
+
+ALTER TABLE public.groupMessageReactions REPLICA IDENTITY FULL;
+
+ALTER TABLE public.groupMessageReactions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view group message reactions" ON public.groupMessageReactions;
+CREATE POLICY "Users can view group message reactions"
+ON public.groupMessageReactions
+FOR SELECT
+USING (public.isGroupMember(groupId));
+
+DROP POLICY IF EXISTS "Users can insert own group message reactions" ON public.groupMessageReactions;
+CREATE POLICY "Users can insert own group message reactions"
+ON public.groupMessageReactions
+FOR INSERT
+WITH CHECK (
+  public.isGroupMember(groupId)
+  AND userId = auth.uid()
+  AND EXISTS (
+    SELECT 1
+    FROM public.groupMessages gm
+    WHERE gm.id = groupMessageId
+      AND gm.groupId = groupId
+      AND gm.deletedAt IS NULL
+  )
+);
+
+DROP POLICY IF EXISTS "Users can delete own group message reactions" ON public.groupMessageReactions;
+CREATE POLICY "Users can delete own group message reactions"
+ON public.groupMessageReactions
+FOR DELETE
+USING (
+  userId = auth.uid()
+  AND public.isGroupMember(groupId)
+);
+
+CREATE INDEX IF NOT EXISTS idxGroupMessageReactionsMessageId
+  ON public.groupMessageReactions(groupMessageId);
+
+CREATE INDEX IF NOT EXISTS idxGroupMessageReactionsGroupId
+  ON public.groupMessageReactions(groupId);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'groupmessagereactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.groupMessageReactions;
+  END IF;
+END
+$$;

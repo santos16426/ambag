@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Crown, Mail, Users, UserPlus, Trash } from "lucide-react";
+import {
+  Check,
+  Crown,
+  Mail,
+  MessageSquare,
+  Users,
+  UserPlus,
+  Trash,
+} from "lucide-react";
 
 import {
   MemberSearch,
@@ -17,6 +25,7 @@ import {
   removeGroupMember,
 } from "../services/group-members.service";
 import type { GroupDetailMember } from "../types";
+import GroupChat from "../components/GroupChat";
 import Image from "next/image";
 interface MembersCardProps {
   members: GroupDetailMember[];
@@ -163,6 +172,7 @@ export function MembersCard({
   const [addError, setAddError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"members" | "chat">("members");
 
   const isOwner =
     createdBy != null &&
@@ -264,123 +274,172 @@ export function MembersCard({
   });
   const pendingList = members.filter((m) => m.type === "pending_invite");
   const hasAnyMembers = memberList.length > 0 || pendingList.length > 0;
+  const memberNamesByUserId = memberList.reduce<Record<string, string>>(
+    (nameMap, member) => {
+      const userId = member.user?.id;
+      if (!userId) return nameMap;
+      const displayName =
+        member.user?.fullname?.trim() || member.user?.email?.trim() || "Unknown member";
+      nameMap[userId] = displayName;
+      return nameMap;
+    },
+    {},
+  );
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col  sticky top-10">
+    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow-auto  sticky top-10">
       <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
-        <div className="flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600">
+        <button
+          type="button"
+          onClick={() => setActiveTab("members")}
+          className={`flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === "members"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
           <Users className="w-3.5 h-3.5 shrink-0" />
           Members
           {members.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[8px] bg-indigo-600 text-white">
+            <span
+              className={`ml-1 px-1.5 py-0.5 rounded-full text-[8px] ${
+                activeTab === "members"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-slate-200 text-slate-500"
+              }`}
+            >
               {members.length}
             </span>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsAddMode(false);
+            setActiveTab("chat");
+          }}
+          className={`flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === "chat"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+          Group Chat
+        </button>
+      </div>
+
+      {activeTab === "members" ? (
+        <div className="flex-1 min-h-0 overflow p-6 space-y-3 custom-scrollbar">
+          {isAddMode ? (
+            <div className="space-y-4">
+              <MemberSearch
+                selectedMembers={selectedMembers}
+                onAddMember={handleAddMember}
+                onRemoveMember={handleRemoveSelectedMember}
+                getAddDisabledReason={getAddDisabledReason}
+              />
+              {addError && (
+                <p className="text-xs text-red-600 font-medium">{addError}</p>
+              )}
+              <p className="text-[10px] text-slate-400 mt-2">
+                Search by email to add existing users or invite by email
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddMode(false);
+                    setSelectedMembers([]);
+                    setAddError(null);
+                  }}
+                  className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitAddMembers}
+                  disabled={selectedMembers.length === 0 || isSubmitting}
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isSubmitting
+                    ? "Adding..."
+                    : `Add ${selectedMembers.length} ${
+                        selectedMembers.length === 1 ? "member" : "members"
+                      }`}
+                </button>
+              </div>
+            </div>
+          ) : (
+            canShowAddMode && (
+              <button
+                type="button"
+                onClick={() => setIsAddMode(true)}
+                className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all text-[10px] font-black uppercase tracking-widest"
+              >
+                <UserPlus className="w-4 h-4" />
+                Invite Members
+              </button>
+            )
+          )}
+
+          {membersError && (
+            <p className="text-xs text-red-600 font-medium">{membersError}</p>
+          )}
+
+          {!hasAnyMembers && !isAddMode ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Users className="w-12 h-12 mb-4 text-slate-300" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                No members yet
+              </p>
+            </div>
+          ) : (
+            !isAddMode && (
+              <div className="space-y-3">
+                {sortedMemberList.map((member) => (
+                  <MemberRow
+                    key={member.id}
+                    member={member}
+                    isCurrentUser={
+                      currentUserId !== undefined &&
+                      member.user?.id === currentUserId
+                    }
+                    isGroupOwner={
+                      createdBy != null && member.user?.id === createdBy
+                    }
+                    canRemove={
+                      !isArchived &&
+                      isOwner &&
+                      createdBy != null &&
+                      member.user?.id !== createdBy
+                    }
+                    onRemove={handleRemoveMember}
+                    isRemoving={removingId === member.id}
+                  />
+                ))}
+                {pendingList.map((member) => (
+                  <PendingInviteRow
+                    key={member.id}
+                    member={member}
+                    canRemove={!isArchived && isOwner}
+                    onRemove={handleCancelInvitation}
+                    isRemoving={removingId === member.id}
+                  />
+                ))}
+              </div>
+            )
+          )}
         </div>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow p-6 space-y-3 custom-scrollbar">
-        {isAddMode ? (
-          <div className="space-y-4">
-            <MemberSearch
-              selectedMembers={selectedMembers}
-              onAddMember={handleAddMember}
-              onRemoveMember={handleRemoveSelectedMember}
-              getAddDisabledReason={getAddDisabledReason}
-            />
-            {addError && (
-              <p className="text-xs text-red-600 font-medium">{addError}</p>
-            )}
-            <p className="text-[10px] text-slate-400 mt-2">
-              Search by email to add existing users or invite by email
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddMode(false);
-                  setSelectedMembers([]);
-                  setAddError(null);
-                }}
-                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitAddMembers}
-                disabled={selectedMembers.length === 0 || isSubmitting}
-                className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {isSubmitting
-                  ? "Adding..."
-                  : `Add ${selectedMembers.length} ${
-                      selectedMembers.length === 1 ? "member" : "members"
-                    }`}
-              </button>
-            </div>
-          </div>
-        ) : (
-          canShowAddMode && (
-            <button
-              type="button"
-              onClick={() => setIsAddMode(true)}
-              className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all text-[10px] font-black uppercase tracking-widest"
-            >
-              <UserPlus className="w-4 h-4" />
-              Invite Members
-            </button>
-          )
-        )}
-
-        {membersError && (
-          <p className="text-xs text-red-600 font-medium">{membersError}</p>
-        )}
-
-        {!hasAnyMembers && !isAddMode ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Users className="w-12 h-12 mb-4 text-slate-300" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              No members yet
-            </p>
-          </div>
-        ) : (
-          !isAddMode && (
-            <div className="space-y-3">
-              {sortedMemberList.map((member) => (
-                <MemberRow
-                  key={member.id}
-                  member={member}
-                  isCurrentUser={
-                    currentUserId !== undefined &&
-                    member.user?.id === currentUserId
-                  }
-                  isGroupOwner={
-                    createdBy != null && member.user?.id === createdBy
-                  }
-                  canRemove={
-                    !isArchived &&
-                    isOwner &&
-                    createdBy != null &&
-                    member.user?.id !== createdBy
-                  }
-                  onRemove={handleRemoveMember}
-                  isRemoving={removingId === member.id}
-                />
-              ))}
-              {pendingList.map((member) => (
-                <PendingInviteRow
-                  key={member.id}
-                  member={member}
-                  canRemove={!isArchived && isOwner}
-                  onRemove={handleCancelInvitation}
-                  isRemoving={removingId === member.id}
-                />
-              ))}
-            </div>
-          )
-        )}
-      </div>
+      ) : (
+        <GroupChat
+          currentUserId={currentUserId}
+          groupId={groupId}
+          isArchived={isArchived}
+          memberNamesByUserId={memberNamesByUserId}
+        />
+      )}
     </div>
   );
 }
