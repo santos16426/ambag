@@ -266,7 +266,7 @@ export function MembersCard({
   const hasAnyMembers = memberList.length > 0 || pendingList.length > 0;
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col  overflow-hidden sticky top-10">
+    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col  sticky top-10">
       <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
         <div className="flex-1 py-5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600">
           <Users className="w-3.5 h-3.5 shrink-0" />
@@ -279,7 +279,7 @@ export function MembersCard({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow p-6 space-y-3 custom-scrollbar">
         {isAddMode ? (
           <div className="space-y-4">
             <MemberSearch

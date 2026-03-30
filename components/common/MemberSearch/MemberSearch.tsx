@@ -5,6 +5,7 @@ import { Search, X, Mail, UserPlus, Check } from "lucide-react";
 
 import { searchUserByEmail } from "./search-users.service";
 import type { MemberInvite } from "./types";
+import Image from "next/image";
 
 export interface MemberSearchProps {
   selectedMembers: MemberInvite[];
@@ -216,21 +217,37 @@ export function MemberSearch({
             {selectedMembers.map((member) => (
               <div
                 key={member.id}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-2xl text-sm border border-slate-100"
+                className={`flex w-full items-center gap-2 py-1.5 rounded-2xl text-sm `}
               >
-                {member.isExistingUser ? (
-                  <UserPlus className="w-3 h-3 text-green-500 shrink-0" />
+                {member.isExistingUser || member.avatar_url ? (
+                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
+                    <Image
+                      width={32}
+                      height={32}
+                      src={member.avatar_url || ""}
+                      alt={member.full_name || member.email}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 ) : (
-                  <Mail className="w-3 h-3 text-indigo-500 shrink-0" />
+                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
+                    <Mail className="w-3 h-3 text-indigo-500 shrink-0" />
+                  </div>
                 )}
-                <span className="font-bold text-slate-600 truncate max-w-[160px]">
-                  {member.full_name || member.email}
-                </span>
-                {!member.isExistingUser && (
-                  <span className="text-[10px] text-slate-400 uppercase">
-                    (invite)
+                <div className="flex flex-col gap-1 flex-1">
+                  <span className="font-bold text-slate-600 truncate w-full">
+                    {member.full_name || member.email}
                   </span>
-                )}
+                  {member.isExistingUser ? (
+                    <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
+                      {member.email}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
+                      Will send email invitation
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => onRemoveMember(member.id)}
