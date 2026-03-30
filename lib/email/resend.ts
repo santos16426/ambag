@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 interface InviteEmailParams {
   to: string;
@@ -7,54 +7,28 @@ interface InviteEmailParams {
   inviterName?: string | null;
 }
 
-function getSmtpConfig() {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const secure = process.env.SMTP_SECURE;
-  const user = process.env.SMTP_USER;
-  const password = process.env.SMTP_PASSWORD;
-  const from = process.env.INVITE_FROM_EMAIL;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-
-  if (!host || !port || !user || !password || !from || !appUrl) {
-    return null;
-  }
-
-  const portNumber = Number.parseInt(port, 10);
-  const isSecure = secure === "true" || secure === "1";
-
-  if (Number.isNaN(portNumber)) {
-    return null;
-  }
-
-  return {
-    host,
-    port: portNumber,
-    secure: isSecure,
-    auth: {
-      user,
-      pass: password,
-    },
-    from,
-    appUrl,
-  };
+interface InviteEmailConfig {
+  apiKey: string;
+  from: string;
 }
 
-const smtpConfig = getSmtpConfig();
+function getInviteEmailConfig(): InviteEmailConfig | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from =
+    process.env.INVITE_FROM_EMAIL ??
+    "Ambag <noreply@contact-ambag.joelucas.dev>";
 
-const transport = smtpConfig
-  ? nodemailer.createTransport({
-      host: smtpConfig.host,
-      port: smtpConfig.port,
-      secure: smtpConfig.secure,
-      auth: smtpConfig.auth,
-    })
-  : null;
+  if (!apiKey || !from) return null;
+
+  return { apiKey, from };
+}
 
 export async function sendInviteEmail(params: InviteEmailParams) {
-  if (!smtpConfig || !transport) {
+  const inviteEmailConfig = getInviteEmailConfig();
+
+  if (!inviteEmailConfig) {
     console.error(
-      "[invite-email] SMTP configuration is missing or invalid. Skipping email send.",
+      "[invite-email] RESEND_API_KEY or INVITE_FROM_EMAIL is missing. Skipping email send.",
     );
     return;
   }
@@ -67,8 +41,9 @@ export async function sendInviteEmail(params: InviteEmailParams) {
   }
 
   const subject = `You're invited to join ${groupName}`;
-
-  const greeting = inviterName ? `${inviterName} has invited you` : "You have been invited";
+  const greeting = inviterName
+    ? `${inviterName} has invited you`
+    : "You have been invited";
 
   const text = [
     `${greeting} to join the group "${groupName}".`,
@@ -109,15 +84,19 @@ export async function sendInviteEmail(params: InviteEmailParams) {
 
   try {
     console.log("[invite-email] sending to", to);
-    await transport.sendMail({
-      from: smtpConfig.from,
-      to,
+    const resend = new Resend(inviteEmailConfig.apiKey);
+    const { error } = await resend.emails.send({
+      from: inviteEmailConfig.from,
+      to: [to],
       subject,
       text,
       html,
     });
+
+    if (error) {
+      console.error("[invite-email] Failed to send invite email", error);
+    }
   } catch (error) {
     console.error("[invite-email] Failed to send invite email", error);
   }
 }
-

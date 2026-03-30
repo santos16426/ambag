@@ -1,6 +1,7 @@
 import { User } from "lucide-react";
 import { GroupDetailMember } from "@/features/groups/types";
 import getInitials from "@/lib/get-initials";
+import Image from "next/image";
 
 export const MemberStack = ({
   members,
@@ -34,9 +35,11 @@ export const MemberStack = ({
             }`}
           >
             {member.user?.avatarurl ? (
-              <img
+              <Image
+                width={40}
+                height={40}
                 src={member.user.avatarurl}
-                alt=""
+                alt={member.user.fullname ?? member.email ?? "Member avatar"}
                 className="w-full h-full object-cover"
               />
             ) : noAvatarFallback === "icon" ? (

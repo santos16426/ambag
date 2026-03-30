@@ -94,10 +94,10 @@ export const useTransactionListStore = create<TransactionListState>()(
       })),
 
     setpagesize: (pagesize) =>
-      set((state) => ({
+      set({
         pagesize,
         visiblecount: pagesize,
-      })),
+      }),
 
     cleartransactionlist: () =>
       set({

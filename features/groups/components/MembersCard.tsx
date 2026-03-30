@@ -17,7 +17,7 @@ import {
   removeGroupMember,
 } from "../services/group-members.service";
 import type { GroupDetailMember } from "../types";
-
+import Image from "next/image";
 interface MembersCardProps {
   members: GroupDetailMember[];
   createdBy?: string;
@@ -50,7 +50,9 @@ function MemberRow({
         <div className="relative shrink-0">
           <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
             {user.avatarurl ? (
-              <img
+              <Image
+                width={100}
+                height={100}
                 src={user.avatarurl}
                 alt={displayName}
                 className="w-full h-full object-cover"

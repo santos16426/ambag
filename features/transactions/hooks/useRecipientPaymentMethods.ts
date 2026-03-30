@@ -79,7 +79,6 @@ export function useRecipientPaymentMethods(
           setSelectedMethodId(enhanced[0].id);
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error(err);
         if (!cancelled) {
           setMethods([]);

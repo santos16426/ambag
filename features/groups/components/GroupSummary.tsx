@@ -272,7 +272,6 @@ export function GroupSummary({
 
             return (
               <div
-                // eslint-disable-next-line react/no-array-index-key
                 key={`${item.userId}-${index}`}
                 style={{ animationDelay: `${index * 40}ms` }}
                 className={`animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 ${
@@ -347,7 +346,9 @@ export function GroupSummary({
                         e.stopPropagation();
                         handleRemind(item.userId, item.amount);
                       }}
-                      title={isReminded ? "Reminder sent" : "Send payment reminder"}
+                      title={
+                        isReminded ? "Reminder sent" : "Send payment reminder"
+                      }
                       className={`w-8 h-8 rounded-full flex items-center justify-center border shadow-sm transition-all ${
                         isReminded
                           ? "bg-emerald-50 border-emerald-100 text-emerald-500 opacity-60"

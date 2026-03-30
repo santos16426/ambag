@@ -15,7 +15,7 @@ import { useSettingsPage } from "../hooks/useSettingsPage";
 import { PaymentMethodsSection } from "./PaymentMethodsSection";
 import { BankForm } from "./BankForm";
 import { QRForm } from "./QRForm";
-
+import Image from "next/image";
 export function SettingsView() {
   const {
     loading,
@@ -24,7 +24,7 @@ export function SettingsView() {
     isEditingProfile,
     modalStep,
     newMethod,
-    createdMethod,
+    // createdMethod,
     isSubmittingMethod,
     submitMethodError,
     avatarInputRef,
@@ -133,7 +133,9 @@ export function SettingsView() {
                   }}
                 >
                   {profile.avatarUrl ? (
-                    <img
+                    <Image
+                      width={100}
+                      height={100}
                       src={profile.avatarUrl ?? undefined}
                       className="w-full h-full object-cover"
                       alt="Avatar"

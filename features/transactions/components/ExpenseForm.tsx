@@ -5,12 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeftRight,
-  Camera,
+  // Camera,
   Check,
   Equal,
   Hash,
   Loader2,
-  Maximize2,
+  // Maximize2,
   Percent,
   Plus,
   PlusCircle,
@@ -31,7 +31,7 @@ import {
 import { useExpenseForm } from "../hooks/useExpenseForm";
 import { ExpenseSuccessReceipt } from "./ExpenseSuccessReceipt";
 import { deleteExpense } from "../services/transaction-submit.service";
-
+import Image from "next/image";
 const SPLIT_METHOD_ICONS: Record<
   SplitType,
   React.ComponentType<{ className?: string }>
@@ -55,7 +55,6 @@ export function ExpenseForm({
   currentUserId,
   onSuccess,
   onDelete,
-  mode,
   initialExpense,
 }: ExpenseFormProps) {
   const {
@@ -84,13 +83,13 @@ export function ExpenseForm({
     setReimbursementTarget,
     items,
     receiptImage,
-    fileInputRef,
+    // fileInputRef,
     currencySymbol,
     isValid,
     remainingSplit,
     isBalanced,
     resetAndClose,
-    handleReceiptChange,
+    // handleReceiptChange,
     addItemizedItem,
     updateItem,
     removeItem,
@@ -99,14 +98,13 @@ export function ExpenseForm({
     toggleMember,
     handleSplitValueChange,
     handleMultiplePayerChange,
-    clearReceipt,
+    // clearReceipt,
   } = useExpenseForm({
     members,
     groupId,
     currentUserId,
     onClose,
     onSuccess,
-    mode,
     initialExpense,
   });
 
@@ -163,10 +161,12 @@ export function ExpenseForm({
                 >
                   <X className="w-6 h-6" />
                 </button>
-                <img
+                <Image
+                  width={100}
+                  height={100}
                   src={receiptImage}
-                  className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
                   alt="Receipt preview"
+                  className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 />
               </motion.div>

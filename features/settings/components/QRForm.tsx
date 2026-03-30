@@ -3,7 +3,7 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QrCode, Upload, X } from "lucide-react";
-
+import Image from "next/image";
 interface QrFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -66,8 +66,8 @@ export function QRForm({
                 <div className="space-y-4">
                   <div className="bg-white p-7 rounded-3xl border border-slate-100 shadow-sm space-y-5">
                     <p className="text-xs font-medium text-slate-500">
-                      Upload a single QR image so friends know where to send your
-                      share.
+                      Upload a single QR image so friends know where to send
+                      your share.
                     </p>
                     <button
                       type="button"
@@ -80,10 +80,12 @@ export function QRForm({
                     >
                       {qrImage ? (
                         <div className="w-full h-full p-6">
-                          <img
+                          <Image
+                            width={100}
+                            height={100}
                             src={qrImage}
                             className="w-full h-full object-contain rounded-xl"
-                            alt="QR preview"
+                            alt="QR code preview"
                           />
                         </div>
                       ) : (

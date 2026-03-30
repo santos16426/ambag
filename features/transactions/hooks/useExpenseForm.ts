@@ -41,7 +41,6 @@ interface UseExpenseFormParams {
   currentUserId?: string | null;
   onClose: () => void;
   onSuccess?: (item: TransactionItemExpense) => void;
-  mode?: "create" | "edit";
   initialExpense?: TransactionItemExpense | null;
 }
 
@@ -51,7 +50,6 @@ export function useExpenseForm({
   currentUserId,
   onClose,
   onSuccess,
-  mode,
   initialExpense,
 }: UseExpenseFormParams) {
   const [step, setStep] = useState<"form" | "success">("form");
@@ -102,42 +100,52 @@ export function useExpenseForm({
     const initialSplitType =
       (initialExpense.splittype as SplitType | null) ?? "equally";
 
-    setStep("form");
-    setDescription(initialExpense.name ?? "");
-    setAmount(initialExpense.amount.toFixed(2));
-    setExpenseDate(formattedDate);
-    setSplitType(initialSplitType);
-    setError(null);
-    setIsSubmitting(false);
-    setItems([]);
-    setReimbursementTarget(null);
+    queueMicrotask(() => {
+      setStep("form");
+      setDescription(initialExpense.name ?? "");
+      setAmount(initialExpense.amount.toFixed(2));
+      setExpenseDate(formattedDate);
+      setSplitType(initialSplitType);
+      setError(null);
+      setIsSubmitting(false);
+      setItems([]);
+      setReimbursementTarget(null);
+    });
 
     if (initialExpense.payors.length <= 1) {
       const payerId = initialExpense.payors[0]?.id;
-      setPayMode("single");
-      setSinglePayer(
-        payerId ??
-          (currentUserId && members.some((m) => m.id === currentUserId)
-            ? currentUserId
-            : members[0]?.id ?? null),
-      );
-      setMultiplePayers({});
+      queueMicrotask(() => {
+        setPayMode("single");
+        setSinglePayer(
+          payerId ??
+            (currentUserId && members.some((m) => m.id === currentUserId)
+              ? currentUserId
+              : members[0]?.id ?? null),
+        );
+        setMultiplePayers({});
+      });
     } else {
-      setPayMode("multiple");
+      queueMicrotask(() => {
+        setPayMode("multiple");
+      });
       const perPayerAmount =
         initialExpense.amount / Math.max(initialExpense.payors.length, 1);
       const nextMultiple: Record<string, string> = {};
       initialExpense.payors.forEach((p) => {
         nextMultiple[p.id] = perPayerAmount.toFixed(2);
       });
-      setMultiplePayers(nextMultiple);
+      queueMicrotask(() => {
+        setMultiplePayers(nextMultiple);
+      });
     }
 
     const participantList = initialExpense.participants ?? [];
     const participantIds = new Set(participantList.map((p) => p.id));
-    setDeselectedMembers(
-      new Set(members.map((m) => m.id).filter((id) => !participantIds.has(id))),
-    );
+    queueMicrotask(() => {
+      setDeselectedMembers(
+        new Set(members.map((m) => m.id).filter((id) => !participantIds.has(id))),
+      );
+    });
 
     const total = initialExpense.amount;
     const selectedCount = participantList.length;
@@ -166,14 +174,20 @@ export function useExpenseForm({
           adjustment: Math.round((owed - baseEqual) * 100) / 100,
         };
       });
-      setMemberSplits(nextSplits);
+      queueMicrotask(() => {
+        setMemberSplits(nextSplits);
+      });
     } else {
-      setMemberSplits({});
+      queueMicrotask(() => {
+        setMemberSplits({});
+      });
     }
 
     if (receiptImage) URL.revokeObjectURL(receiptImage);
-    setReceiptImage(null);
-    setReceiptImageUrl(initialExpense.receipturl);
+    queueMicrotask(() => {
+      setReceiptImage(null);
+      setReceiptImageUrl(initialExpense.receipturl);
+    });
   }, [initialExpense, currentUserId, members, receiptImage]);
 
   const selectedMembers = useMemo(

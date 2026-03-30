@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { MemberSearch } from "@/components/common/MemberSearch";
 import { useGroupForm } from "../hooks/useGroupForm";
+import Image from "next/image";
 
 interface GroupFormProps {
   isOpen: boolean;
@@ -76,7 +77,10 @@ const GroupForm = ({ isOpen, setIsOpen, onSuccess }: GroupFormProps) => {
               className="bg-slate-950 rounded-[2rem] p-6 mb-10 flex items-center gap-5 shadow-2xl shadow-indigo-100 relative overflow-hidden group border border-white/5"
             >
               {imagePreview && (
-                <img
+                <Image
+                  alt="Group Preview"
+                  width={100}
+                  height={100}
                   src={imagePreview}
                   className="absolute inset-0 w-full h-full object-cover opacity-30 blur-[2px] scale-110"
                 />
@@ -143,8 +147,11 @@ const GroupForm = ({ isOpen, setIsOpen, onSuccess }: GroupFormProps) => {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 overflow-hidden">
                     {imagePreview ? (
-                      <img
+                      <Image
+                        width={48}
+                        height={48}
                         src={imagePreview}
+                        alt="Group banner preview"
                         className="w-full h-full object-cover"
                       />
                     ) : (

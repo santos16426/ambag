@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { Group } from "../types";
 import { useDashboardGroupsStore } from "../store/groups.store";
+import Image from "next/image";
 
 const GroupCard = ({ group }: { group: Group }) => {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -39,7 +40,9 @@ const GroupCard = ({ group }: { group: Group }) => {
         <div className="absolute inset-0 z-0">
           {group.imageurl ? (
             <>
-              <img
+              <Image
+                width={100}
+                height={100}
                 src={group.imageurl}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 alt={group.name}

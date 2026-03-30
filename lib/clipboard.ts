@@ -7,7 +7,6 @@ export function copyToClipboard(text: string): void {
   try {
     document.execCommand("copy");
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
   }
 

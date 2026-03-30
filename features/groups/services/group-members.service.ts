@@ -26,29 +26,26 @@ export async function addMembersToGroup(
   groupId: string,
   members: MemberInvite[],
 ): Promise<{ error: Error | null }> {
-  const supabase = createClient();
+  const response = await fetch("/api/groups/members/add", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      groupId,
+      members: members.map((member) => ({
+        id: member.id,
+        email: member.email,
+        isExistingUser: member.isExistingUser,
+      })),
+    }),
+  });
 
-  for (const member of members) {
-    if (member.isExistingUser) {
-      const { error } = await supabase.rpc("creategroupmember", {
-        payload: {
-          groupid: groupId,
-          userid: member.id,
-          role: "member",
-          status: "active",
-        },
-      });
-      if (error) return { error };
-    } else {
-      const { error } = await supabase.rpc("creategroupinvite", {
-        payload: {
-          groupId,
-          invitedEmail: member.email,
-          inviteToken: crypto.randomUUID(),
-        },
-      });
-      if (error) return { error };
-    }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+    return { error: new Error(body?.error ?? "Failed to add members") };
   }
 
   return { error: null };

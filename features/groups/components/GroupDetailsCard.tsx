@@ -9,7 +9,6 @@ import { useGroupCoverImageUpload } from "@/features/groups/hooks/useGroupCoverI
 import { useGroupDetailsEditing } from "@/features/groups/hooks/useGroupDetailsEditing";
 import { updateGroupDetails } from "@/features/groups/services/group-details.service";
 import { useGroupDetailsStore } from "@/features/groups/store/group-details.store";
-import type { GroupDetailMember } from "@/features/groups/types";
 import {
   Archive,
   Camera,
@@ -22,14 +21,12 @@ import {
 } from "lucide-react";
 import { PremiumMeshBackground } from "./Skeleton";
 import { toast } from "sonner";
-
+import Image from "next/image";
 interface GroupDetailsCardProps {
   group: Group;
-  members: GroupDetailMember[];
 }
 
 export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
-  const members = useGroupDetailsStore((s) => s.members);
   const sessionUser = useAuthStore((s) => s.sessionUser);
   const { copiedCode, copyInviteCode } = useCopyInviteCode();
   const setGroupDetails = useGroupDetailsStore((s) => s.setGroupDetails);
@@ -82,7 +79,9 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
     <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-sm min-h-[220px]">
       <div className="group relative w-full h-[350px] bg-slate-900 overflow-hidden">
         {group.imageurl ? (
-          <img
+          <Image
+            width={100}
+            height={100}
             src={group.imageurl}
             className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105"
             alt="Banner"

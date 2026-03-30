@@ -7,7 +7,6 @@ import {
   Bell,
   User,
   LogOut,
-  Palette,
   Menu,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +18,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLayoutStore } from "@/store/layoutStore";
+import Image from "next/image";
 
 const Header = () => {
   const router = useRouter();
@@ -138,7 +138,9 @@ const Header = () => {
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary text-primary-foreground text-sm font-bold border-2 border-card shadow-sm ml-1 md:ml-2 overflow-hidden hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
             >
               {profile?.avatarurl ? (
-                <img
+                <Image
+                  width={32}
+                  height={32}
                   src={profile.avatarurl}
                   alt={profile.fullname ?? profile.email ?? "Profile"}
                   className="w-full h-full object-cover"

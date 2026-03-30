@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { sendInviteEmail } from "@/lib/email/nodemailer";
+import { sendInviteEmail } from "@/lib/email/resend";
 import { createClient } from "@/lib/supabase/server";
 import { serviceRoleClient } from "@/lib/supabase/service-role";
 

@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import {
   ArrowUpRight,
   ArrowDownLeft,
-  CreditCard,
   Search,
   UserPlus,
   Plus,
@@ -111,9 +110,6 @@ const Dashboard = () => {
 
         <div className="bg-white rounded-[3rem] border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
           <div>
-            {/* <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4">
-              <CreditCard className="w-6 h-6" />
-            </div> */}
             <h3 className="font-black text-slate-900">Quick Pay</h3>
             <p className="text-xs text-slate-400 font-medium">
               Instantly settle with your most active group.
@@ -201,9 +197,6 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
-            {filteredGroups.map((group) => (
-              <GroupCard key={group.id} group={group} />
-            ))}
             <div
               onClick={() => setIsGroupFormOpen(true)}
               className="border-2 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-slate-300 hover:border-orange-200 hover:text-orange-300 transition-all group cursor-pointer"
@@ -215,6 +208,9 @@ const Dashboard = () => {
                 Create New Group
               </p>
             </div>
+            {filteredGroups.map((group) => (
+              <GroupCard key={group.id} group={group} />
+            ))}
           </>
         )}
       </div>

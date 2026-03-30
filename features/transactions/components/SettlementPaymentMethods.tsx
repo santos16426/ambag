@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Copy, CreditCard, Download, Loader2, QrCode } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  CreditCard,
+  Download,
+  Loader2,
+  QrCode,
+} from "lucide-react";
 
 import { copyToClipboard } from "@/lib/clipboard";
 
 import type { RecipientPaymentMethod } from "../hooks/useRecipientPaymentMethods";
+import Image from "next/image";
 
 interface SettlementPaymentMethodsProps {
   methods: RecipientPaymentMethod[];
@@ -134,7 +143,10 @@ export function SettlementPaymentMethods({
                       <button
                         type="button"
                         onClick={() =>
-                          handleCopy(selectedMethod.accountnumber ?? "", "number")
+                          handleCopy(
+                            selectedMethod.accountnumber ?? "",
+                            "number",
+                          )
                         }
                         className="p-2 bg-white/10 hover:bg-white/20 rounded-lg"
                       >
@@ -172,9 +184,11 @@ export function SettlementPaymentMethods({
                 </div>
                 {selectedMethod.qrcodeurl && (
                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <img
-                      src={selectedMethod.qrcodeurl}
+                    <Image
+                      width={160}
+                      height={160}
                       alt="QR code for payment"
+                      src={selectedMethod.qrcodeurl}
                       className="w-40 h-40"
                     />
                   </div>
@@ -190,4 +204,3 @@ export function SettlementPaymentMethods({
     </div>
   );
 }
-

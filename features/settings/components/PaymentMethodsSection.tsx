@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Building2, CreditCard, QrCode, Trash2 } from "lucide-react";
+import Image from "next/image";
 
 import type { PayoutMethod } from "../types";
 
@@ -48,7 +49,6 @@ export function PaymentMethodsSection({
         <div className="grid gap-4">
           {[0, 1].map((item) => (
             <div
-              // eslint-disable-next-line react/no-array-index-key
               key={item}
               className="flex items-center gap-4 p-6 rounded-[32px] border-2 border-white bg-white shadow-sm animate-pulse"
             >
@@ -119,7 +119,9 @@ export function PaymentMethodsSection({
               <div className="flex items-center gap-2">
                 {method.type === "qr" && method.qrImage && (
                   <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
-                    <img
+                    <Image
+                      width={56}
+                      height={56}
                       src={method.qrImage}
                       className="w-full h-full object-contain"
                       alt="QR code"

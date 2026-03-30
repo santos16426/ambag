@@ -101,19 +101,23 @@ function GroupDetailPage() {
       processedSettleRef.current = settle;
       // "open" is the sentinel for notifications without a stored referenceId
       const isUUID = settle !== "open" && /^[0-9a-f-]{36}$/i.test(settle);
-      setSettlementDefaults({
-        payerId: sessionUser.id,
-        receiverId: isUUID ? settle : null,
-        amount: null,
-        maxAmount: null,
+      queueMicrotask(() => {
+        setSettlementDefaults({
+          payerId: sessionUser.id,
+          receiverId: isUUID ? settle : null,
+          amount: null,
+          maxAmount: null,
+        });
+        setSettlementFormOpen(true);
       });
-      setSettlementFormOpen(true);
       router.replace(pathname, { scroll: false });
     }
 
     if (highlight && highlight !== processedHighlightRef.current) {
       processedHighlightRef.current = highlight;
-      setHighlightedExpenseId(highlight);
+      queueMicrotask(() => {
+        setHighlightedExpenseId(highlight);
+      });
       useTransactionListStore.getState().revealItem(highlight);
       router.replace(pathname, { scroll: false });
     }
@@ -177,15 +181,15 @@ function GroupDetailPage() {
               This group is archived
             </p>
             <p className="mt-1 text-xs font-medium leading-relaxed text-amber-800/85">
-              You can still review activity and balances. Adding or editing expenses,
-              settlements, group details, and members is not available for archived
-              groups.
+              You can still review activity and balances. Adding or editing
+              expenses, settlements, group details, and members is not available
+              for archived groups.
             </p>
           </div>
         </div>
       )}
       <div className="col-span-12 lg:col-span-9 space-y-6">
-        <GroupDetailsCard group={group} members={members} />
+        <GroupDetailsCard group={group} />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 space-y-6">
             <GroupSummary

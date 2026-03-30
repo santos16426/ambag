@@ -78,26 +78,38 @@ export function SettlementForm({
     if (!isOpen) return;
 
     if (editingSettlement) {
-      setFromUser(editingSettlement.payerid);
-      setToUser(editingSettlement.receiverid);
-      setAmount(editingSettlement.amount.toString());
+      queueMicrotask(() => {
+        setFromUser(editingSettlement.payerid);
+        setToUser(editingSettlement.receiverid);
+        setAmount(editingSettlement.amount.toString());
+      });
       return;
     }
 
     if (initialPayerId) {
-      setFromUser(initialPayerId);
+      queueMicrotask(() => {
+        setFromUser(initialPayerId);
+      });
     } else if (!fromUser) {
-      setFromUser(defaultFrom);
+      queueMicrotask(() => {
+        setFromUser(defaultFrom);
+      });
     }
 
     if (initialReceiverId) {
-      setToUser(initialReceiverId);
+      queueMicrotask(() => {
+        setToUser(initialReceiverId);
+      });
     } else if (!toUser) {
-      setToUser(defaultTo);
+      queueMicrotask(() => {
+        setToUser(defaultTo);
+      });
     }
 
     if (initialAmount != null) {
-      setAmount(initialAmount.toString());
+      queueMicrotask(() => {
+        setAmount(initialAmount.toString());
+      });
     }
   }, [
     isOpen,
@@ -175,7 +187,6 @@ export function SettlementForm({
 
     if (maxAmount != null && amountNum > maxAmount) {
       const overpay = amountNum - maxAmount;
-      // eslint-disable-next-line no-alert
       const createExtraTransfer = window.confirm(
         `You only owe ${EXPENSE_FORM_CURRENCY.symbol}${maxAmount.toFixed(
           2,

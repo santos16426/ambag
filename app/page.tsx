@@ -5,7 +5,6 @@ import {
   Hero,
   Features,
   CalculatorTool,
-  Pricing,
   CTA,
   Navbar,
   Footer,
@@ -44,7 +43,6 @@ export default function Home() {
         <Hero />
         <Features />
         <CalculatorTool />
-        {/* <Pricing /> */}
         <CTA />
       </main>
       <Footer />
