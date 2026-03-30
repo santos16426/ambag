@@ -1,6 +1,33 @@
 import { motion } from "framer-motion";
-import { Users, Receipt, Heart } from "lucide-react";
+import { Users, ScanLine, Percent, Heart } from "lucide-react";
 import { staggerContainer, fadeInUp } from "../constants";
+
+const features = [
+  {
+    name: "Equal Split",
+    href: "#",
+    desc: "Divide any total instantly across your entire group.",
+    icon: Users,
+  },
+  {
+    name: "Itemized OCR",
+    href: "#",
+    desc: "Pull line items from a receipt photo and assign dishes to friends.",
+    icon: ScanLine,
+  },
+  {
+    name: "Smart Tax/Tip",
+    href: "#",
+    desc: "Apply tax and tip proportionally so everyone pays a fair share.",
+    icon: Percent,
+  },
+  {
+    name: "Group/Couple Logic",
+    href: "#",
+    desc: "Treat couples as one unit or split their share independently.",
+    icon: Heart,
+  },
+] as const;
 
 const Features = () => {
   return (
@@ -25,44 +52,28 @@ const Features = () => {
           initial="initial"
           whileInView="animate"
           viewport={{ once: true }}
-          className="grid md:grid-cols-3 gap-8"
+          className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8"
         >
-          {[
-            {
-              title: "Equal Split",
-              desc: "Divide any total instantly across your entire group.",
-              icon: Users,
-              color: "orange",
-            },
-            {
-              title: "Itemized Mode",
-              desc: "Assign specific dishes to specific friends with zero friction.",
-              icon: Receipt,
-              color: "blue",
-            },
-            {
-              title: "Couple Logic",
-              desc: "Treat couples as one unit or split their share independently.",
-              icon: Heart,
-              color: "pink",
-            },
-          ].map((feature, idx) => (
-            <motion.div
-              key={idx}
+          {features.map((feature) => (
+            <motion.a
+              key={feature.name}
+              href={feature.href}
               variants={fadeInUp}
               whileHover={{ y: -10 }}
-              className="p-8 rounded-[2.5rem] bg-slate-50 hover:bg-white border border-transparent hover:border-slate-100 hover:shadow-xl transition-all group"
+              className="block p-8 rounded-[2.5rem] bg-slate-50 hover:bg-white border border-transparent hover:border-slate-100 hover:shadow-xl transition-all group text-left no-underline"
             >
               <div
                 className={`h-14 w-14 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-6 group-hover:bg-slate-900 group-hover:text-white transition-all`}
               >
                 <feature.icon className="h-7 w-7" />
               </div>
-              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+              <h3 className="text-xl font-bold mb-3 text-slate-900">
+                {feature.name}
+              </h3>
               <p className="text-gray-500 leading-relaxed font-medium">
                 {feature.desc}
               </p>
-            </motion.div>
+            </motion.a>
           ))}
         </motion.div>
       </div>

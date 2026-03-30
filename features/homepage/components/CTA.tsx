@@ -111,7 +111,7 @@ const CTA = () => {
               </span>
             </motion.a>
 
-            <motion.a
+            {/* <motion.a
               href="/login?mode=signup?plan=lifetime"
               whileHover={{
                 scale: 1.02,
@@ -121,7 +121,7 @@ const CTA = () => {
               className="flex-1 px-10 py-7 bg-white/5 border-2 border-white/10 text-white font-black text-2xl rounded-[32px] backdrop-blur-sm"
             >
               See Pro
-            </motion.a>
+            </motion.a> */}
           </div>
 
           {/* Live Ticker Social Proof */}
