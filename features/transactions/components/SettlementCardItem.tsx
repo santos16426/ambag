@@ -37,7 +37,7 @@ export function SettlementCardItem({
 
   return (
     <div
-      className={`overflow-hidden bg-white border border-emerald-100 rounded-[32px] p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer group ${!isinvolved ? "opacity-50" : ""}`}
+      className={`overflow-hidden bg-white border border-emerald-100 rounded-[32px] p-4 lg:p-6 mb-4 transition-all hover:border-emerald-200 flex flex-col gap-4 relative cursor-pointer group ${!isinvolved ? "opacity-50" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

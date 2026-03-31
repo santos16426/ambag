@@ -59,7 +59,7 @@ export function ExpenseCardItem({
       <button
         type="button"
         onClick={onClick}
-        className={`flex flex-col gap-4 p-5 w-full text-left cursor-pointer ${!isinvolved ? "opacity-50" : ""}`}
+        className={`flex flex-col gap-4 p-4 lg:p-5 w-full text-left cursor-pointer ${!isinvolved ? "opacity-50" : ""}`}
         aria-label={`Edit ${item.name ?? "expense"}`}
       >
         <div className="flex items-center justify-between gap-4 pr-8">
@@ -103,7 +103,7 @@ export function ExpenseCardItem({
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+        <div className="flex items-center justify-between pt-2 border-t border-slate-50 w-full">
           <div className="flex items-center gap-3">
             <AvatarStack
               users={payors}

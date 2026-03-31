@@ -13,6 +13,7 @@ import {
   Share2,
 } from "lucide-react";
 import { MemberSearch } from "@/components/common/MemberSearch";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import { useGroupForm } from "../hooks/useGroupForm";
 import Image from "next/image";
 
@@ -23,6 +24,7 @@ interface GroupFormProps {
 }
 
 const GroupForm = ({ isOpen, setIsOpen, onSuccess }: GroupFormProps) => {
+  const { sessionUser } = useAuthStore();
   const {
     step,
     name,
@@ -195,6 +197,8 @@ const GroupForm = ({ isOpen, setIsOpen, onSuccess }: GroupFormProps) => {
                   selectedMembers={members}
                   onAddMember={handleAddMember}
                   onRemoveMember={handleRemoveMember}
+                  currentUserId={sessionUser?.id}
+                  currentUserEmail={sessionUser?.email}
                 />
                 <p className="text-[10px] text-slate-400 mt-2">
                   Search by email to add existing users or invite by email

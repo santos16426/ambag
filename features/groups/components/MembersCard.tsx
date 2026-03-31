@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
-  ChevronRight,
   Crown,
   Mail,
   MessageSquare,
@@ -396,6 +395,8 @@ export function MembersCard({
                 selectedMembers={selectedMembers}
                 onAddMember={handleAddMember}
                 onRemoveMember={handleRemoveSelectedMember}
+                currentUserId={currentUserId}
+                currentUserEmail={sessionUser?.email}
                 getAddDisabledReason={getAddDisabledReason}
               />
               {addError && (

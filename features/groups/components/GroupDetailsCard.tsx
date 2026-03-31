@@ -77,7 +77,7 @@ export default function GroupDetailsCard({ group }: GroupDetailsCardProps) {
 
   return (
     <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-sm min-h-[220px]">
-      <div className="group relative w-full h-[350px] bg-slate-900 overflow-hidden">
+      <div className="group relative w-full h-[220px] lg:h-[350px] bg-slate-900 overflow-hidden">
         {group.imageurl ? (
           <Image
             width={100}

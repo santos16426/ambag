@@ -53,8 +53,7 @@ const Dashboard = () => {
   const { summary, loading: summaryLoading } =
     useDashboardFinancialSummary(groups);
   const [search, setSearch] = useState("");
-  const [archiveFilter, setArchiveFilter] =
-    useState<GroupArchiveFilter>("all");
+  const [archiveFilter, setArchiveFilter] = useState<GroupArchiveFilter>("all");
   const [isJoinGroupFormOpen, setIsJoinGroupFormOpen] = useState(false);
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
 
@@ -68,8 +67,7 @@ const Dashboard = () => {
     return { activeGroupCount: active, archivedGroupCount: archived };
   }, [groups]);
 
-  const showArchiveFilter =
-    activeGroupCount > 0 && archivedGroupCount > 0;
+  const showArchiveFilter = activeGroupCount > 0 && archivedGroupCount > 0;
 
   const filteredGroups = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -118,7 +116,7 @@ const Dashboard = () => {
               <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
                 Total Net Worth
               </p>
-              <h2 className="text-8xl font-black tracking-tighter">
+              <h2 className="text-6xl lg:text-8xl font-black tracking-tighter">
                 {summaryLoading ? "..." : formatCurrency(summary.totalnetworth)}
               </h2>
             </div>
@@ -130,7 +128,7 @@ const Dashboard = () => {
                     Collect
                   </span>
                 </div>
-                <p className="text-[25px] font-black">
+                <p className="text-[18px] lg:text-[25px] font-black">
                   {summaryLoading
                     ? "..."
                     : formatCurrency(summary.totaltocollect)}
@@ -144,7 +142,7 @@ const Dashboard = () => {
                     Pay
                   </span>
                 </div>
-                <p className="text-[25px] font-black">
+                <p className="text-[18px] lg:text-[25px] font-black">
                   {summaryLoading ? "..." : formatCurrency(summary.totaltopay)}
                 </p>
               </div>
@@ -152,7 +150,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[3rem] border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
+        <div className="bg-white rounded-[3rem] border border-slate-100 p-4 lg:p-8 flex flex-col justify-between shadow-sm">
           <div>
             <h3 className="font-black text-slate-900">Quick Pay</h3>
             <p className="text-xs text-slate-400 font-medium">

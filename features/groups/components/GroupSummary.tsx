@@ -202,7 +202,7 @@ export function GroupSummary({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/60 p-4 rounded-2xl border border-white/60">
+              <div className="bg-white/60 p-2 lg:p-4 rounded-2xl border border-white/60">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
                   {GROUP_SUMMARY_LABELS.owedToMe}
                 </p>
@@ -211,7 +211,7 @@ export function GroupSummary({
                   {formatAmount(owedToMeTotal)}
                 </p>
               </div>
-              <div className="bg-white/60 p-4 rounded-2xl border border-white/60">
+              <div className="bg-white/60 p-2 lg:p-4 rounded-2xl border border-white/60">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
                   {GROUP_SUMMARY_LABELS.owedByMe}
                 </p>
@@ -274,7 +274,7 @@ export function GroupSummary({
               <div
                 key={`${item.userId}-${index}`}
                 style={{ animationDelay: `${index * 40}ms` }}
-                className={`animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 ${
+                className={`animate-in fade-in slide-in-from-bottom-2 group flex items-center justify-between p-2 lg:p-4 bg-white/60 border border-white/70 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 rounded-[1.75rem] transition-all duration-300 ${
                   item.side === "owing" && !isArchived
                     ? "cursor-pointer"
                     : "cursor-default"
@@ -354,7 +354,7 @@ export function GroupSummary({
                           ? "bg-emerald-50 border-emerald-100 text-emerald-500 opacity-60"
                           : isReminding
                             ? "bg-indigo-50 border-indigo-100 text-indigo-400 animate-pulse"
-                            : "bg-slate-50 border-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-500"
+                            : "bg-slate-50 border-slate-100 text-slate-400 opacity-100 lg:group-hover:opacity-100 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-500"
                       }`}
                     >
                       {isReminded ? (
@@ -364,7 +364,7 @@ export function GroupSummary({
                       )}
                     </button>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100 shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center opacity-100 lg:group-hover:opacity-100 transition-opacity border border-slate-100 shadow-sm">
                       <ChevronRight size={14} className="text-slate-400" />
                     </div>
                   )}

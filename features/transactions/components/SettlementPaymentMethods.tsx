@@ -62,6 +62,7 @@ export function SettlementPaymentMethods({
           onChange={(e) => onChangeSelected(e.target.value)}
           className="w-full h-12 pl-12 pr-10 bg-slate-50 border-2 border-transparent rounded-2xl text-xs font-bold text-slate-900 outline-none appearance-none focus:border-indigo-500 focus:bg-white"
         >
+          <option value="">Cash</option>
           {methods.length > 0 ? (
             methods.map((method) => (
               <option key={method.id} value={method.id}>

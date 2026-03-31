@@ -8,7 +8,10 @@ import {
 } from "../constants";
 import { TransactionListStatus } from "./TransactionListStatus";
 import { TransactionListItems } from "./TransactionListItems";
-import type { TransactionItemExpense, TransactionItemSettlement } from "../types";
+import type {
+  TransactionItemExpense,
+  TransactionItemSettlement,
+} from "../types";
 
 interface TransactionListProps {
   groupid: string;
@@ -46,7 +49,7 @@ export function TransactionList({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-5">
+      <div className="bg-white p lg:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">

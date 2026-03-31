@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X, Mail, UserPlus, Check } from "lucide-react";
+import { Search, X, Mail, UserPlus, Check, AlertCircle } from "lucide-react";
 
 import { searchUserByEmail } from "./search-users.service";
 import type { MemberInvite } from "./types";
@@ -11,6 +11,8 @@ export interface MemberSearchProps {
   selectedMembers: MemberInvite[];
   onAddMember: (member: MemberInvite) => void;
   onRemoveMember: (id: string) => void;
+  currentUserId?: string;
+  currentUserEmail?: string;
   /**
    * When adding to an existing group, return a reason to disable the Add button
    * (e.g. "Already a member", "Invitation already sent", "Join request pending").
@@ -26,24 +28,44 @@ export function MemberSearch({
   selectedMembers,
   onAddMember,
   onRemoveMember,
+  currentUserId,
+  currentUserEmail,
   getAddDisabledReason,
 }: MemberSearchProps) {
   const [emailInput, setEmailInput] = useState("");
   const [searchResult, setSearchResult] = useState<MemberInvite | null>(null);
+  const [selfSearchResult, setSelfSearchResult] = useState<MemberInvite | null>(
+    null,
+  );
   const [isSearching, setIsSearching] = useState(false);
   const [showResult, setShowResult] = useState(false);
+
+  const currentUserEmailLower = currentUserEmail?.toLowerCase().trim() || null;
+
+  function isCurrentUser(result: MemberInvite) {
+    if (currentUserId && result.isExistingUser && result.id === currentUserId)
+      return true;
+    if (
+      currentUserEmailLower &&
+      result.email.toLowerCase() === currentUserEmailLower
+    )
+      return true;
+    return false;
+  }
 
   async function handleEmailChange(email: string) {
     setEmailInput(email);
 
     if (!email.trim()) {
       setSearchResult(null);
+      setSelfSearchResult(null);
       setShowResult(false);
       return;
     }
 
     if (!isValidEmail(email)) {
       setSearchResult(null);
+      setSelfSearchResult(null);
       setShowResult(false);
       return;
     }
@@ -53,9 +75,16 @@ export function MemberSearch({
 
     try {
       const result = await searchUserByEmail(email);
-      setSearchResult(result);
+      if (result && isCurrentUser(result)) {
+        setSelfSearchResult(result);
+        setSearchResult(null);
+      } else {
+        setSelfSearchResult(null);
+        setSearchResult(result);
+      }
     } catch {
       setSearchResult(null);
+      setSelfSearchResult(null);
     } finally {
       setIsSearching(false);
     }
@@ -63,6 +92,7 @@ export function MemberSearch({
 
   function handleAddMember() {
     if (!searchResult) return;
+    if (isCurrentUser(searchResult)) return;
 
     const alreadyAdded = selectedMembers.some(
       (m) => m.email.toLowerCase() === searchResult.email.toLowerCase(),
@@ -111,6 +141,7 @@ export function MemberSearch({
             onClick={() => {
               setEmailInput("");
               setSearchResult(null);
+              setSelfSearchResult(null);
               setShowResult(false);
             }}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
@@ -124,6 +155,29 @@ export function MemberSearch({
             {isSearching ? (
               <div className="p-4 text-center text-sm text-slate-400">
                 Checking email...
+              </div>
+            ) : selfSearchResult ? (
+              <div className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-black text-sm">
+                      {selfSearchResult.full_name?.charAt(0) ||
+                        selfSearchResult.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">
+                        You
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {selfSearchResult.email}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-black bg-yellow-100 rounded-xl p-2">
+                    <AlertCircle className="w-4 h-4 inline mr-2" /> Already a
+                    member of this group
+                  </p>
+                </div>
               </div>
             ) : searchResult ? (
               <div className="p-4">
@@ -207,56 +261,61 @@ export function MemberSearch({
         )}
       </div>
 
-      {selectedMembers.length > 0 && (
+      {selectedMembers.filter((m) => !isCurrentUser(m)).length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            {selectedMembers.length}{" "}
-            {selectedMembers.length === 1 ? "member" : "members"} to add
+            {selectedMembers.filter((m) => !isCurrentUser(m)).length}{" "}
+            {selectedMembers.filter((m) => !isCurrentUser(m)).length === 1
+              ? "member"
+              : "members"}{" "}
+            to add
           </p>
           <div className="flex flex-wrap gap-2">
-            {selectedMembers.map((member) => (
-              <div
-                key={member.id}
-                className={`flex w-full items-center gap-2 py-1.5 rounded-2xl text-sm `}
-              >
-                {member.isExistingUser || member.avatar_url ? (
-                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
-                    <Image
-                      width={32}
-                      height={32}
-                      src={member.avatar_url || ""}
-                      alt={member.full_name || member.email}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
-                    <Mail className="w-3 h-3 text-indigo-500 shrink-0" />
-                  </div>
-                )}
-                <div className="flex flex-col gap-1 flex-1">
-                  <span className="font-bold text-slate-600 truncate w-full">
-                    {member.full_name || member.email}
-                  </span>
-                  {member.isExistingUser ? (
-                    <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
-                      {member.email}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
-                      Will send email invitation
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onRemoveMember(member.id)}
-                  className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+            {selectedMembers
+              .filter((m) => !isCurrentUser(m))
+              .map((member) => (
+                <div
+                  key={member.id}
+                  className={`flex w-full items-center gap-2 py-1.5 rounded-2xl text-sm `}
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
+                  {member.isExistingUser || member.avatar_url ? (
+                    <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
+                      <Image
+                        width={32}
+                        height={32}
+                        src={member.avatar_url || ""}
+                        alt={member.full_name || member.email}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center border-2 border-white shadow-sm text-sm font-bold overflow-hidden">
+                      <Mail className="w-3 h-3 text-indigo-500 shrink-0" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <span className="font-bold text-slate-600 truncate w-full">
+                      {member.full_name || member.email}
+                    </span>
+                    {member.isExistingUser ? (
+                      <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
+                        {member.email}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400 tracking-tight truncate max-w-[140px]">
+                        Will send email invitation
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveMember(member.id)}
+                    className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       )}
