@@ -144,11 +144,11 @@ function GroupDetailPage() {
   if (loading && !group) {
     return (
       <div className="p-4 lg:p-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-8 space-y-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <div className="xl:col-span-8 space-y-8">
             <GroupDetailsCardSkeleton />
           </div>
-          <div className="lg:col-span-4 sticky top-8">
+          <div className="xl:col-span-4 sticky top-8">
             <MembersCardSkeleton />
           </div>
         </div>
@@ -188,10 +188,10 @@ function GroupDetailPage() {
           </div>
         </div>
       )}
-      <div className="col-span-12 lg:col-span-9 space-y-6">
+      <div className="col-span-12 xl:col-span-9 space-y-6">
         <GroupDetailsCard group={group} />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          <div className="xl:col-span-4 space-y-6">
             <GroupSummary
               groupId={group.id}
               currentUserId={sessionUser?.id ?? null}
@@ -208,7 +208,7 @@ function GroupDetailPage() {
               }}
             />
           </div>
-          <div className="lg:col-span-8 space-y-6">
+          <div className="xl:col-span-8 space-y-6">
             <TransactionList
               groupid={group.id}
               currentUserId={sessionUser?.id ?? null}
@@ -246,7 +246,7 @@ function GroupDetailPage() {
           </div>
         </div>
       </div>
-      <div className="col-span-12 lg:col-span-3 space-y-6">
+      <div className="col-span-12 xl:col-span-3 space-y-6">
         <MembersCard
           key={group.id}
           members={members}
