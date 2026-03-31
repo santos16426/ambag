@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { motion } from "framer-motion";
 import {
@@ -9,6 +9,7 @@ import {
   Search,
   UserPlus,
   Plus,
+  Archive,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -31,17 +32,60 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+type GroupArchiveFilter = "all" | "active" | "archived";
+
+const GROUP_ARCHIVE_FILTERS: {
+  value: GroupArchiveFilter;
+  label: string;
+}[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+];
+
+function isGroupArchived(archivedat: string | null | undefined): boolean {
+  return archivedat != null;
+}
+
 const Dashboard = () => {
   const { profile } = useAuthStore();
   const { groups, loading } = useDashboardGroups();
   const { summary, loading: summaryLoading } =
     useDashboardFinancialSummary(groups);
   const [search, setSearch] = useState("");
+  const [archiveFilter, setArchiveFilter] =
+    useState<GroupArchiveFilter>("all");
   const [isJoinGroupFormOpen, setIsJoinGroupFormOpen] = useState(false);
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
-  const filteredGroups = groups.filter((group) =>
-    group.name.toLowerCase().includes(search.toLowerCase()),
-  );
+
+  const { activeGroupCount, archivedGroupCount } = useMemo(() => {
+    let active = 0;
+    let archived = 0;
+    for (const group of groups) {
+      if (isGroupArchived(group.archivedat)) archived += 1;
+      else active += 1;
+    }
+    return { activeGroupCount: active, archivedGroupCount: archived };
+  }, [groups]);
+
+  const showArchiveFilter =
+    activeGroupCount > 0 && archivedGroupCount > 0;
+
+  const filteredGroups = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return groups.filter((group) => {
+      if (q && !group.name.toLowerCase().includes(q)) return false;
+      if (!showArchiveFilter) return true;
+      const archived = isGroupArchived(group.archivedat);
+      if (archiveFilter === "all") return true;
+      if (archiveFilter === "active") return !archived;
+      return archived;
+    });
+  }, [groups, search, archiveFilter, showArchiveFilter]);
+
+  const hasNoGroups = !loading && groups.length === 0;
+  const hasNoMatches =
+    !loading && groups.length > 0 && filteredGroups.length === 0;
   const visibleGroupSummaries = summary.groupsummary.filter(
     (group) => group.topay > 0 || group.tocollect > 0,
   );
@@ -153,26 +197,57 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-8 ">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
           Groups
         </h2>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsJoinGroupFormOpen(true)}
-            className="flex items-center gap-2 px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm text-slate-900 font-black text-xs hover:border-orange-200 transition-all"
-          >
-            <UserPlus className="w-4 h-4 text-orange-500" />
-            Join Group
-          </button>
-          <div className="relative hidden sm:block">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-            <input
-              onChange={(e) => setSearch(e.target.value)}
-              type="text"
-              placeholder="Search groups..."
-              className="pl-10 pr-4 py-2 bg-slate-100 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-orange-500 w-48"
-            />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          {showArchiveFilter ? (
+            <div
+              className="inline-flex rounded-xl border border-slate-100 bg-slate-50 p-1 shadow-sm"
+              role="group"
+              aria-label="Show groups by status"
+            >
+              {GROUP_ARCHIVE_FILTERS.map(({ value, label }) => {
+                const isSelected = archiveFilter === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setArchiveFilter(value)}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-wider transition-all sm:px-4 ${
+                      isSelected
+                        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    {value === "archived" && (
+                      <Archive className="h-3.5 w-3.5 opacity-70" />
+                    )}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => setIsJoinGroupFormOpen(true)}
+              className="flex items-center gap-2 px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm text-slate-900 font-black text-xs hover:border-orange-200 transition-all"
+            >
+              <UserPlus className="w-4 h-4 text-orange-500" />
+              Join Group
+            </button>
+            <div className="relative flex-1 min-w-48 sm:flex-none sm:block">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+              <input
+                onChange={(e) => setSearch(e.target.value)}
+                type="text"
+                placeholder="Search groups..."
+                value={search}
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-orange-500 sm:w-48"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -180,7 +255,7 @@ const Dashboard = () => {
       <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           [1, 2, 3].map((_, index) => <GroupCardLoading key={index} />)
-        ) : filteredGroups.length === 0 ? (
+        ) : hasNoGroups ? (
           <div
             onClick={() => setIsGroupFormOpen(true)}
             className="cursor-pointer sm:col-span-2 lg:col-span-3 border-2 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-slate-300 hover:border-orange-200 hover:text-orange-300 transition-all"
@@ -193,6 +268,21 @@ const Dashboard = () => {
             </p>
             <p className="text-xs text-slate-400 mt-2">
               Create your first group to start tracking shared expenses.
+            </p>
+          </div>
+        ) : hasNoMatches ? (
+          <div className="sm:col-span-2 lg:col-span-3 rounded-[2.5rem] border border-slate-100 bg-slate-50/80 px-8 py-12 text-center">
+            <p className="font-black text-sm text-slate-800">
+              No groups match this view
+            </p>
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              {!showArchiveFilter
+                ? "Try a different search term."
+                : archiveFilter === "active"
+                  ? "Try “All” or “Archived”, or adjust your search."
+                  : archiveFilter === "archived"
+                    ? "You have no archived groups, or your search did not match."
+                    : "Try a different search term."}
             </p>
           </div>
         ) : (

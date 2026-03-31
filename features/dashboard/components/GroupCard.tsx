@@ -76,12 +76,6 @@ const GroupCard = ({ group }: { group: Group }) => {
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 drop-shadow-md">
                 {group.userrole === "admin" ? "Owner" : "Member"}
               </span>
-              {group.archivedat && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-400/20 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-100">
-                  <Archive className="h-2.5 w-2.5" />
-                  Archived
-                </span>
-              )}
               <CreditCard className="text-white/20 w-8 h-8" />
             </div>
           </div>
@@ -123,22 +117,29 @@ const GroupCard = ({ group }: { group: Group }) => {
 
           {/* Card Footer: Data Points */}
           <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">
-                Invite Code
-              </p>
-              <button
-                onClick={(e) => handleCopy(group.invitecode ?? "", e)}
-                className="flex items-center gap-2 font-mono text-lg font-bold text-white hover:text-purple-400 transition-colors drop-shadow-lg"
-              >
-                {copyFeedback === group.invitecode
-                  ? "COPIED"
-                  : group.invitecode}
-                {copyFeedback !== group.invitecode && (
-                  <Copy className="w-4 h-4 opacity-30" />
-                )}
-              </button>
-            </div>
+            {group.archivedat ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-400/20 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-100">
+                <Archive className="h-2.5 w-2.5" />
+                Archived
+              </span>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">
+                  Invite Code
+                </p>
+                <button
+                  onClick={(e) => handleCopy(group.invitecode ?? "", e)}
+                  className="flex items-center gap-2 font-mono text-lg font-bold text-white hover:text-purple-400 transition-colors drop-shadow-lg"
+                >
+                  {copyFeedback === group.invitecode
+                    ? "COPIED"
+                    : group.invitecode}
+                  {copyFeedback !== group.invitecode && (
+                    <Copy className="w-4 h-4 opacity-30" />
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="text-right">
               <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">

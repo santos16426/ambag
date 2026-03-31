@@ -1450,7 +1450,8 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ==============================================================
 -- EXPENSE RECEIPTS POLICIES
--- path: expense-receipts/{groupId}/{expenseId}/{file}
+-- path: expense-receipts/temp/{groupId}/{file} (pending uploads)
+-- path: expense-receipts/{groupId}/{expenseId}/{file} (finalized uploads)
 -- ==============================================================
 
 DROP POLICY IF EXISTS "View expense receipts" ON storage.objects;
@@ -1458,46 +1459,142 @@ CREATE POLICY "View expense receipts"
 ON storage.objects
 FOR SELECT
 USING (
-
-bucket_id = 'expense-receipts'
-
-AND EXISTS (
-  SELECT 1
-  FROM public.groups g
-  WHERE g.id = (split_part(name,'/',1))::uuid
-  AND public.isGroupMember(g.id)
-)
-
+  bucket_id = 'expense-receipts'
+  AND (
+    (
+      lower(split_part(name,'/',1)) = 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',2)
+          AND public.isGroupMember(g.id)
+      )
+    )
+    OR
+    (
+      lower(split_part(name,'/',1)) <> 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',1)
+          AND public.isGroupMember(g.id)
+      )
+    )
+  )
 );
-
 
 DROP POLICY IF EXISTS "Upload expense receipts" ON storage.objects;
 CREATE POLICY "Upload expense receipts"
 ON storage.objects
 FOR INSERT
+TO authenticated
 WITH CHECK (
-
-bucket_id = 'expense-receipts'
-
-AND EXISTS (
-  SELECT 1
-  FROM public.groups g
-  WHERE g.id = (split_part(name,'/',1))::uuid
-  AND public.isGroupMember(g.id)
-)
-
+  bucket_id = 'expense-receipts'
+  AND (
+    (
+      lower(split_part(name,'/',1)) = 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groupMembers gm
+        WHERE gm.groupId::text = split_part(name,'/',2)
+          AND gm.userId = auth.uid()
+          AND gm.removedAt IS NULL
+      )
+    )
+    OR
+    (
+      lower(split_part(name,'/',1)) <> 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groupMembers gm
+        WHERE gm.groupId::text = split_part(name,'/',1)
+          AND gm.userId = auth.uid()
+          AND gm.removedAt IS NULL
+      )
+    )
+  )
 );
 
+DROP POLICY IF EXISTS "Update expense receipts" ON storage.objects;
+CREATE POLICY "Update expense receipts"
+ON storage.objects
+FOR UPDATE
+USING (
+  bucket_id = 'expense-receipts'
+  AND (
+    (
+      lower(split_part(name,'/',1)) = 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',2)
+          AND public.isGroupMember(g.id)
+      )
+    )
+    OR
+    (
+      lower(split_part(name,'/',1)) <> 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',1)
+          AND public.isGroupMember(g.id)
+      )
+    )
+  )
+)
+WITH CHECK (
+  bucket_id = 'expense-receipts'
+  AND (
+    (
+      lower(split_part(name,'/',1)) = 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',2)
+          AND public.isGroupMember(g.id)
+      )
+    )
+    OR
+    (
+      lower(split_part(name,'/',1)) <> 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',1)
+          AND public.isGroupMember(g.id)
+      )
+    )
+  )
+);
 
-DROP POLICY IF EXISTS "Delete own expense receipt" ON storage.objects;
-CREATE POLICY "Delete own expense receipt"
+DROP POLICY IF EXISTS "Delete expense receipts" ON storage.objects;
+CREATE POLICY "Delete expense receipts"
 ON storage.objects
 FOR DELETE
 USING (
-
-bucket_id = 'expense-receipts'
-AND owner = auth.uid()
-
+  bucket_id = 'expense-receipts'
+  AND (
+    (
+      lower(split_part(name,'/',1)) = 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',2)
+          AND public.isGroupMember(g.id)
+      )
+    )
+    OR
+    (
+      lower(split_part(name,'/',1)) <> 'temp'
+      AND EXISTS (
+        SELECT 1
+        FROM public.groups g
+        WHERE g.id::text = split_part(name,'/',1)
+          AND public.isGroupMember(g.id)
+      )
+    )
+  )
 );
 
 
