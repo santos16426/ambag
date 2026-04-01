@@ -32,6 +32,10 @@ interface GroupSummaryProps {
   isArchived?: boolean;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f-]{36}$/i.test(value);
+}
+
 function formatAmount(amount: number): string {
   return amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -124,6 +128,10 @@ export function GroupSummary({
 
   async function handleRemind(toUserId: string, amount: number) {
     if (isArchived) return;
+    if (!isUuid(toUserId)) {
+      toast.warning("You cannot send a reminder to non-registered users.");
+      return;
+    }
     if (remindingId || remindedIds.has(toUserId)) return;
     setRemindingId(toUserId);
     const { error: reminderError } = await sendPaymentReminder({
@@ -286,9 +294,13 @@ export function GroupSummary({
                     currentUserId &&
                     onSettleWith
                   ) {
+                    const receiverId =
+                      item.userDetails.id && isUuid(item.userDetails.id)
+                        ? item.userDetails.id
+                        : item.userDetails.email ?? item.userId;
                     onSettleWith({
                       payerId: currentUserId,
-                      receiverId: item.userId,
+                      receiverId,
                       amount: item.amount,
                       maxAmount: item.amount,
                     });
@@ -298,15 +310,17 @@ export function GroupSummary({
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 rounded-2xl bg-linear-to-br from-slate-100 to-white flex items-center justify-center border border-white shadow-sm group-hover:scale-105 transition-transform">
                     <span className="text-xs font-bold text-slate-700">
-                      {item.userDetails.fullName
+                      {(item.userDetails.fullName ?? item.userDetails.email)
                         ?.split(" ")
                         .map((n: string) => n[0])
                         .join("") ?? "?"}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800">
-                      {item.userDetails.fullName ?? "Unknown"}
+                    <p className="text-sm font-bold text-slate-800 truncate max-w-[60px]">
+                      {item.userDetails.fullName ??
+                        item.userDetails.email ??
+                        "Unknown"}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       {item.side === "owed" ? (
@@ -341,13 +355,22 @@ export function GroupSummary({
                   {item.side === "owed" ? (
                     <button
                       type="button"
-                      disabled={isArchived || isReminding || isReminded}
+                      disabled={
+                        isArchived ||
+                        !isUuid(item.userId) ||
+                        isReminding ||
+                        isReminded
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemind(item.userId, item.amount);
                       }}
                       title={
-                        isReminded ? "Reminder sent" : "Send payment reminder"
+                        !isUuid(item.userId)
+                          ? "Reminders require a registered user"
+                          : isReminded
+                            ? "Reminder sent"
+                            : "Send payment reminder"
                       }
                       className={`w-8 h-8 rounded-full flex items-center justify-center border shadow-sm transition-all ${
                         isReminded

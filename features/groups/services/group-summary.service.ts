@@ -15,6 +15,7 @@ interface RpcGroupSummaryMember {
     id: string;
     fullName: string | null;
     avatarUrl: string | null;
+    email?: string | null;
   };
 }
 
@@ -35,6 +36,7 @@ function mapBreakdown(raw: RpcGroupSummaryPayload["owedByMe"]): GroupSummaryBrea
         id: m.userDetails.id,
         fullName: m.userDetails.fullName,
         avatarUrl: m.userDetails.avatarUrl,
+        email: m.userDetails.email ?? null,
       },
     })),
   };

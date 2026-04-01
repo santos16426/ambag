@@ -16,9 +16,9 @@ function formatDate(iso: string | null): string {
   }
 }
 
-function displayName(user: { name: string | null } | null): string {
+function displayName(user: { name: string | null; email?: string | null } | null): string {
   if (!user) return "Unknown";
-  return user.name?.trim() || "Unknown";
+  return user.name?.trim() || user.email?.trim() || "Unknown";
 }
 
 interface TransactionItemProps {

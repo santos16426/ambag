@@ -12,20 +12,23 @@ interface AvatarStackProps {
 }
 
 function toMemberStackMembers(users: TransactionUser[]): GroupDetailMember[] {
-  return users.map((user) => ({
+  return users.map((user, idx) => {
+    const stableId = user.id ?? (user.email ? `email:${user.email}` : `unknown:${idx}`);
+    return {
     type: "member" as const,
-    id: user.id,
+    id: stableId,
     role: "",
     joined_at: null,
     user: {
-      id: user.id,
-      email: "",
-      fullname: user.name,
+      id: stableId,
+      email: user.email ?? "",
+      fullname: user.name ?? user.email ?? null,
       avatarurl: user.avatar ?? null,
     },
     email: null,
     invited_at: null,
-  }));
+  };
+  });
 }
 
 export function AvatarStack({

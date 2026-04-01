@@ -63,8 +63,8 @@ function mapFeedItem(item: RpcFeedItem): TransactionItem {
   const set: TransactionItemSettlement = {
     ...base,
     type: "settlement",
-    payerid: item.payerid ?? "",
-    receiverid: item.receiverid ?? "",
+    payerid: item.payerid ?? null,
+    receiverid: item.receiverid ?? null,
     payer: item.payer ?? null,
     receiver: item.receiver ?? null,
   };

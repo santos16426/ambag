@@ -21,7 +21,7 @@ import {
 } from "../services/transaction-submit.service";
 
 function memberToTransactionUser(m: ExpenseFormMember): TransactionUser {
-  return { id: m.id, name: m.fullname, avatar: null };
+  return { id: m.id, name: m.fullname, avatar: null, email: m.email };
 }
 
 export interface ExpenseSubmitPayload {
@@ -31,7 +31,7 @@ export interface ExpenseSubmitPayload {
   expenseDate: string;
   splitType: SplitType;
   paidBy: string | Record<string, string>;
-  participants: Array<{ user_id: string; amount_owed: number }>;
+  participants: Array<{ user_id?: string; email?: string; amount_owed: number }>;
   receiptUrl: string | null;
 }
 
@@ -132,7 +132,7 @@ export function useExpenseForm({
         initialExpense.amount / Math.max(initialExpense.payors.length, 1);
       const nextMultiple: Record<string, string> = {};
       initialExpense.payors.forEach((p) => {
-        nextMultiple[p.id] = perPayerAmount.toFixed(2);
+        nextMultiple[p.id ?? ""] = perPayerAmount.toFixed(2);
       });
       queueMicrotask(() => {
         setMultiplePayers(nextMultiple);
@@ -165,8 +165,8 @@ export function useExpenseForm({
       const nextSplits: Record<string, MemberSplitState> = {};
       participantList.forEach((p) => {
         const owed = p.amountOwed ?? p.amountowed ?? 0;
-        nextSplits[p.id] = {
-          user_id: p.id,
+        nextSplits[p.id ?? ""] = {
+          user_id: p.id ?? "",
           amount_owed: owed,
           percentage:
             total > 0 ? Math.round((owed / total) * 10000) / 100 : 0,
@@ -442,10 +442,17 @@ export function useExpenseForm({
     setIsSubmitting(true);
 
     const participantsPayload = (() => {
-      const out: Array<{ user_id: string; amount_owed: number }> = [];
+      const out: Array<{ user_id?: string; email?: string; amount_owed: number }> =
+        [];
       members.forEach((m) => {
         const owed = memberSplitsComputed[m.id]?.amount_owed ?? 0;
-        if (owed > 0) out.push({ user_id: m.id, amount_owed: owed });
+        if (owed <= 0) return;
+        const isEmail = m.id.includes("@");
+        out.push(
+          isEmail
+            ? { email: m.id.toLowerCase().trim(), amount_owed: owed }
+            : { user_id: m.id, amount_owed: owed },
+        );
       });
       return out;
     })();

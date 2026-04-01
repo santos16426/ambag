@@ -68,16 +68,28 @@ function GroupDetailPage() {
     useGroupDetailsStore();
 
   const formMembers = useMemo((): ExpenseFormMember[] => {
-    return members
-      .filter(
-        (m): m is typeof m & { user: NonNullable<typeof m.user> } =>
-          m.type === "member" && m.user != null,
-      )
-      .map((m) => ({
-        id: m.user.id,
-        fullname: m.user.fullname,
-        email: m.user.email,
-      }));
+    return members.flatMap((m) => {
+      if (m.type === "member" && m.user != null) {
+        return [
+          {
+            id: m.user.id,
+            fullname: m.user.fullname,
+            email: m.user.email,
+          },
+        ];
+      }
+      if (m.type === "pending_invite" && m.email) {
+        const email = m.email.toLowerCase().trim();
+        return [
+          {
+            id: email,
+            fullname: null,
+            email,
+          },
+        ];
+      }
+      return [];
+    });
   }, [members]);
 
   useEffect(() => {
