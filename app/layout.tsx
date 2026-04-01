@@ -13,6 +13,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Ambag - Financial Management System",
   description: "Financial management system for businesses and organizations",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

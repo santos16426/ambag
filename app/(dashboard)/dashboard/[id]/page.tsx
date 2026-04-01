@@ -84,6 +84,11 @@ function GroupDetailPage() {
     if (id) fetchGroupDetails(id);
   }, [id, fetchGroupDetails]);
 
+  useEffect(() => {
+    if (!group?.name) return;
+    document.title = `Ambag | ${group.name}`;
+  }, [group?.name]);
+
   const processedSettleRef = useRef<string | null>(null);
   const processedHighlightRef = useRef<string | null>(null);
 
