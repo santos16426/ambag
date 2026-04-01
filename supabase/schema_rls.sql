@@ -1007,6 +1007,7 @@ BEGIN
     NULLIF(trim(NEW.raw_user_meta_data->>'fullName'), ''),
     NULLIF(trim(NEW.raw_user_meta_data->>'full_name'), ''),
     NULLIF(trim(NEW.raw_user_meta_data->>'name'), ''),
+    NULLIF(split_part(COALESCE(NEW.email, ''), '@', 1), ''),
     'User'
   );
 
@@ -1021,7 +1022,16 @@ BEGIN
   -- logins (e.g. Google) so that edits in public.profiles are preserved.
   INSERT INTO public.profiles (id, fullName, email, avatarUrl, createdAt)
   VALUES (NEW.id, display_name, NEW.email, avatar_url, NOW())
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE
+  SET
+    -- Only "upgrade" placeholder values; never overwrite user-edited names.
+    fullName = CASE
+      WHEN public.profiles.fullName = 'User' AND EXCLUDED.fullName <> 'User' THEN EXCLUDED.fullName
+      ELSE public.profiles.fullName
+    END,
+    -- Fill in missing fields if they were previously null/empty.
+    avatarUrl = COALESCE(NULLIF(public.profiles.avatarUrl, ''), EXCLUDED.avatarUrl),
+    email = COALESCE(NULLIF(public.profiles.email, ''), EXCLUDED.email);
 
   -- If this user was invited by email before they had an account, add them to those
   -- groups as a member, then delete the pending invitation records.

@@ -343,7 +343,7 @@ export function MembersCard({
   );
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow-auto  sticky top-10">
+    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow  sticky top-10">
       <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
         <button
           type="button"

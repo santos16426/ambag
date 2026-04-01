@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 
 import { sendInviteEmail } from "@/lib/email/resend";
 import { createClient } from "@/lib/supabase/server";
-import { serviceRoleClient } from "@/lib/supabase/service-role";
-
 interface AddMembersRequestBody {
   groupId: string;
   members: Array<{
@@ -55,6 +53,8 @@ export async function POST(request: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
     for (const member of members) {
+      const invitedEmail = member.email.toLowerCase().trim();
+
       if (member.isExistingUser) {
         const { error } = await supabase.rpc("creategroupmember", {
           payload: {
@@ -71,8 +71,8 @@ export async function POST(request: Request) {
         continue;
       }
 
+      // Invite by email: store as pending in groupinvites (same flow as group creation).
       const inviteToken = crypto.randomUUID();
-      const invitedEmail = member.email.toLowerCase().trim();
 
       const { error: inviteError } = await supabase.rpc("creategroupinvite", {
         payload: {
@@ -83,38 +83,15 @@ export async function POST(request: Request) {
       });
 
       if (inviteError) {
-        return NextResponse.json({ error: inviteError.message }, { status: 400 });
+        return NextResponse.json(
+          { error: inviteError.message },
+          { status: 400 },
+        );
       }
 
-      let inviteUrl = `${appUrl}/invite/accept?token=${encodeURIComponent(inviteToken)}`;
+      const inviteUrl = `${appUrl}/invite/accept?token=${encodeURIComponent(inviteToken)}`;
 
-      if (serviceRoleClient) {
-        const { data: linkData, error: linkError } =
-          await serviceRoleClient.auth.admin.generateLink({
-            type: "magiclink",
-            email: invitedEmail,
-            options: {
-              redirectTo: inviteUrl,
-            },
-          });
-
-        const magicLink =
-          (linkData &&
-            typeof (linkData as { [key: string]: unknown }).action_link ===
-              "string" &&
-            ((linkData as { [key: string]: unknown }).action_link as string)) ||
-          undefined;
-
-        if (!linkError && magicLink) {
-          inviteUrl = magicLink;
-        }
-      }
-
-      await sendInviteEmail({
-        to: invitedEmail,
-        groupName,
-        inviteUrl,
-      });
+      await sendInviteEmail({ to: invitedEmail, groupName, inviteUrl });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });

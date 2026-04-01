@@ -37,7 +37,7 @@ export default async function InviteAcceptPage({
 
   if (!user) {
     const redirectTarget = `/invite/accept?token=${encodeURIComponent(token)}`;
-    redirect(`/auth?redirect=${encodeURIComponent(redirectTarget)}`);
+    redirect(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
   }
 
   const { data, error } = await supabase.rpc("acceptinvitebytoken", {
