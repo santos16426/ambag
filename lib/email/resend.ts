@@ -12,11 +12,23 @@ interface InviteEmailConfig {
   from: string;
 }
 
+function stripWrappingQuotes(value: string) {
+  const trimmedValue = value.trim();
+  const hasDoubleQuotes =
+    trimmedValue.startsWith('"') && trimmedValue.endsWith('"');
+  const hasSingleQuotes =
+    trimmedValue.startsWith("'") && trimmedValue.endsWith("'");
+
+  if (hasDoubleQuotes || hasSingleQuotes) return trimmedValue.slice(1, -1);
+  return trimmedValue;
+}
+
 function getInviteEmailConfig(): InviteEmailConfig | null {
   const apiKey = process.env.RESEND_API_KEY;
-  const from =
+  const fromRaw =
     process.env.INVITE_FROM_EMAIL ??
     "Ambag <noreply@contact-ambag.joelucas.dev>";
+  const from = stripWrappingQuotes(fromRaw);
 
   if (!apiKey || !from) return null;
 

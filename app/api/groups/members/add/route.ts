@@ -50,7 +50,13 @@ export async function POST(request: Request) {
 
     const groupName =
       (groupData as { name?: string | null } | null)?.name ?? "your group";
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const vercelUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "";
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      process.env.NEXT_PUBLIC_VERCEL_URL ??
+      vercelUrl;
 
     for (const member of members) {
       const invitedEmail = member.email.toLowerCase().trim();
@@ -87,6 +93,13 @@ export async function POST(request: Request) {
           { error: inviteError.message },
           { status: 400 },
         );
+      }
+
+      if (!appUrl) {
+        console.error(
+          "[invite-email] Missing NEXT_PUBLIC_APP_URL (or NEXT_PUBLIC_VERCEL_URL / VERCEL_URL). Skipping email send.",
+        );
+        continue;
       }
 
       const inviteUrl = `${appUrl}/invite/accept?token=${encodeURIComponent(inviteToken)}`;
