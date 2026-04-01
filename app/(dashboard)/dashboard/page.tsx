@@ -109,7 +109,9 @@ const Dashboard = () => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="md:col-span-2 bg-slate-900 rounded-[3rem] p-8 text-white relative overflow-hidden">
+        <div
+          className={`${visibleGroupSummaries.length > 0 ? "md:col-span-2" : "md:col-span-3"} bg-slate-900 rounded-[3rem] p-8 text-white relative overflow-hidden`}
+        >
           <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-linear-to-l from-orange-500/20 to-transparent" />
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div>
@@ -150,49 +152,47 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[3rem] border border-slate-100 p-4 lg:p-8 flex flex-col justify-between shadow-sm">
-          <div>
-            <h3 className="font-black text-slate-900">Quick Pay</h3>
-            <p className="text-xs text-slate-400 font-medium">
-              Instantly settle with your most active group.
-            </p>
-          </div>
-          <div className="mt-4 space-y-2 max-h-52 overflow-auto pr-1">
-            {summaryLoading ? (
-              <p className="text-xs text-slate-400 font-medium py-2">
-                Loading balances...
+        {visibleGroupSummaries.length > 0 && (
+          <div className="bg-white rounded-[3rem] border border-slate-100 p-4 lg:p-8 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="font-black text-slate-900">Quick Pay</h3>
+              <p className="text-xs text-slate-400 font-medium">
+                Instantly settle with your most active group.
               </p>
-            ) : visibleGroupSummaries.length === 0 ? (
-              <p className="text-xs text-slate-400 font-medium py-2">
-                No payable balances yet.
-              </p>
-            ) : (
-              visibleGroupSummaries.map((group) => (
-                <Link
-                  key={group.id}
-                  href={`/dashboard/${group.id}`}
-                  className="block rounded-2xl border border-slate-100 hover:border-orange-200 px-3 py-2 transition-all"
-                >
-                  <p className="text-xs font-bold text-slate-800 truncate">
-                    {group.groupname}
-                  </p>
-                  <div className="mt-1 space-y-0.5">
-                    {group.topay > 0 && (
-                      <p className="text-[11px] font-black text-rose-500">
-                        Pay: {formatCurrency(group.topay)}
-                      </p>
-                    )}
-                    {group.tocollect > 0 && (
-                      <p className="text-[11px] font-black text-emerald-600">
-                        Collect: {formatCurrency(group.tocollect)}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              ))
-            )}
+            </div>
+            <div className="mt-4 space-y-2 max-h-52 overflow-auto pr-1">
+              {summaryLoading ? (
+                <p className="text-xs text-slate-400 font-medium py-2">
+                  Loading balances...
+                </p>
+              ) : (
+                visibleGroupSummaries.map((group) => (
+                  <Link
+                    key={group.id}
+                    href={`/dashboard/${group.id}`}
+                    className="block rounded-2xl border border-slate-100 hover:border-orange-200 px-3 py-2 transition-all"
+                  >
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      {group.groupname}
+                    </p>
+                    <div className="mt-1 space-y-0.5">
+                      {group.topay > 0 && (
+                        <p className="text-[11px] font-black text-rose-500">
+                          Pay: {formatCurrency(group.topay)}
+                        </p>
+                      )}
+                      {group.tocollect > 0 && (
+                        <p className="text-[11px] font-black text-emerald-600">
+                          Collect: {formatCurrency(group.tocollect)}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">

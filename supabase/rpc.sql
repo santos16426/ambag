@@ -533,6 +533,7 @@ $$;
 --   "participants": [ { "user_id": "uuid", "amount_owed": 12.34 }, ... ],
 --   "receiptUrl": "optional/url"
 -- }
+
 CREATE OR REPLACE FUNCTION public.updateExpenseWithSplits(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
