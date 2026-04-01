@@ -42,7 +42,7 @@ export function ExpenseCardItem({
   return (
     <div
       ref={ref}
-      className={`overflow-hidden group bg-white border rounded-[28px] mb-3 transition-all relative w-full ${
+      className={`group bg-white border rounded-[28px] mb-3 transition-all relative w-full ${
         isHighlighted
           ? "border-indigo-300 ring-2 ring-indigo-300 ring-offset-2 shadow-lg shadow-indigo-100"
           : "border-slate-100 hover:border-indigo-100"

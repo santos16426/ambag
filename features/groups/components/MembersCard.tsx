@@ -343,7 +343,9 @@ export function MembersCard({
   );
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow  sticky top-10">
+    <div
+      className={`bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col ${activeTab === "chat" ? "overflow-hidden" : ""} sticky top-10`}
+    >
       <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
         <button
           type="button"
@@ -388,7 +390,7 @@ export function MembersCard({
       </div>
 
       {activeTab === "members" ? (
-        <div className="flex-1 min-h-0 overflow p-6 space-y-3 custom-scrollbar">
+        <div className={`flex-1 min-h-0 p-6 space-y-3 custom-scrollbar`}>
           {isAddMode ? (
             <div className="space-y-4">
               <MemberSearch
