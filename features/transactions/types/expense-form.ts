@@ -54,5 +54,5 @@ export interface ExpenseSuccessReceiptData {
   expense_date: string;
   paid_by?: string;
   payments?: Record<string, number>;
-  participants: Array<{ user_id: string; amount_owed: number }>;
+  participants: Array<{ user_id?: string; email?: string; amount_owed: number }>;
 }

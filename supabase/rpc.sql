@@ -455,6 +455,8 @@ DECLARE
   v_paid_by_obj jsonb;
   v_key text;
   v_value text;
+  v_group_id uuid;
+  v_email text;
 BEGIN
   -- Re-map to createExpense's payload (camelCase keys; read both cases from incoming payload)
   v_expense_payload := jsonb_build_object(
@@ -472,6 +474,7 @@ BEGIN
   v_expense_json := v_created->'expense';
   v_expense_id := (v_expense_json->>'id')::uuid;
   v_expense_amount := (v_expense_json->>'amount')::numeric;
+  v_group_id := (v_expense_json->>'groupid')::uuid;
 
   -- Insert payers (single or multiple)
   v_paid_by := COALESCE(payload->>'paidBy', payload->>'paidby');
@@ -484,14 +487,50 @@ BEGIN
       FROM jsonb_each_text(v_paid_by_obj)
     LOOP
       IF COALESCE(NULLIF(v_value, ''), '0')::numeric > 0 THEN
-        INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
-        VALUES (v_expense_id, v_key::uuid, v_value::numeric);
+        IF position('@' in v_key) > 0 THEN
+          v_email := lower(trim(v_key));
+          INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+          VALUES (v_expense_id, NULL, v_email, v_value::numeric);
+
+          IF NOT EXISTS (
+            SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+          ) AND NOT EXISTS (
+            SELECT 1 FROM public.groupinvites gi
+            WHERE gi.groupid = v_group_id
+              AND gi.status = 'pending'
+              AND lower(trim(gi.invitedemail)) = v_email
+          ) THEN
+            INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+            VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+          END IF;
+        ELSE
+          INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+          VALUES (v_expense_id, v_key::uuid, NULL, v_value::numeric);
+        END IF;
       END IF;
     END LOOP;
   ELSIF v_paid_by IS NOT NULL AND v_paid_by <> '' THEN
     -- single payer: paidBy is userId string, amount is full amount
-    INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
-    VALUES (v_expense_id, v_paid_by::uuid, v_expense_amount);
+    IF position('@' in v_paid_by) > 0 THEN
+      v_email := lower(trim(v_paid_by));
+      INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+      VALUES (v_expense_id, NULL, v_email, v_expense_amount);
+
+      IF NOT EXISTS (
+        SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+      ) AND NOT EXISTS (
+        SELECT 1 FROM public.groupinvites gi
+        WHERE gi.groupid = v_group_id
+          AND gi.status = 'pending'
+          AND lower(trim(gi.invitedemail)) = v_email
+      ) THEN
+        INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+        VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+      END IF;
+    ELSE
+      INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+      VALUES (v_expense_id, v_paid_by::uuid, NULL, v_expense_amount);
+    END IF;
   END IF;
 
   -- Insert splits and participants from participants array
@@ -500,16 +539,37 @@ BEGIN
     SELECT value
     FROM jsonb_array_elements(COALESCE(payload->'participants', '[]'::jsonb))
   LOOP
-    INSERT INTO public."expensesplits" (expenseId, userId, amountOwed, percent, shares)
-    VALUES (
-      v_expense_id,
-      (v_participant->>'user_id')::uuid,
-      COALESCE((v_participant->>'amount_owed')::numeric, 0),
-      NULL,
-      NULL
-    );
-    INSERT INTO public."expenseparticipants" (expenseId, userId)
-    VALUES (v_expense_id, (v_participant->>'user_id')::uuid);
+    v_email := NULLIF(lower(trim(v_participant->>'email')), '');
+    IF v_email IS NOT NULL THEN
+      INSERT INTO public."expensesplits" (expenseId, userId, email, amountOwed, percent, shares)
+      VALUES (v_expense_id, NULL, v_email, COALESCE((v_participant->>'amount_owed')::numeric, 0), NULL, NULL);
+      INSERT INTO public."expenseparticipants" (expenseId, userId, email)
+      VALUES (v_expense_id, NULL, v_email);
+
+      IF NOT EXISTS (
+        SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+      ) AND NOT EXISTS (
+        SELECT 1 FROM public.groupinvites gi
+        WHERE gi.groupid = v_group_id
+          AND gi.status = 'pending'
+          AND lower(trim(gi.invitedemail)) = v_email
+      ) THEN
+        INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+        VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+      END IF;
+    ELSE
+      INSERT INTO public."expensesplits" (expenseId, userId, email, amountOwed, percent, shares)
+      VALUES (
+        v_expense_id,
+        (v_participant->>'user_id')::uuid,
+        NULL,
+        COALESCE((v_participant->>'amount_owed')::numeric, 0),
+        NULL,
+        NULL
+      );
+      INSERT INTO public."expenseparticipants" (expenseId, userId, email)
+      VALUES (v_expense_id, (v_participant->>'user_id')::uuid, NULL);
+    END IF;
   END LOOP;
 
   RETURN jsonb_build_object(
@@ -551,6 +611,7 @@ DECLARE
   v_paid_by_obj jsonb;
   v_key text;
   v_value text;
+  v_email text;
 BEGIN
   IF v_expense_id IS NULL THEN
     RAISE EXCEPTION 'expenseId is required';
@@ -597,13 +658,49 @@ BEGIN
       FROM jsonb_each_text(v_paid_by_obj)
     LOOP
       IF COALESCE(NULLIF(v_value, ''), '0')::numeric > 0 THEN
-        INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
-        VALUES (v_expense_id, v_key::uuid, v_value::numeric);
+        IF position('@' in v_key) > 0 THEN
+          v_email := lower(trim(v_key));
+          INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+          VALUES (v_expense_id, NULL, v_email, v_value::numeric);
+
+          IF NOT EXISTS (
+            SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+          ) AND NOT EXISTS (
+            SELECT 1 FROM public.groupinvites gi
+            WHERE gi.groupid = v_group_id
+              AND gi.status = 'pending'
+              AND lower(trim(gi.invitedemail)) = v_email
+          ) THEN
+            INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+            VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+          END IF;
+        ELSE
+          INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+          VALUES (v_expense_id, v_key::uuid, NULL, v_value::numeric);
+        END IF;
       END IF;
     END LOOP;
   ELSIF v_paid_by IS NOT NULL AND v_paid_by <> '' THEN
-    INSERT INTO public."expensepayers" (expenseId, userId, amountPaid)
-    VALUES (v_expense_id, v_paid_by::uuid, v_expense_amount);
+    IF position('@' in v_paid_by) > 0 THEN
+      v_email := lower(trim(v_paid_by));
+      INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+      VALUES (v_expense_id, NULL, v_email, v_expense_amount);
+
+      IF NOT EXISTS (
+        SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+      ) AND NOT EXISTS (
+        SELECT 1 FROM public.groupinvites gi
+        WHERE gi.groupid = v_group_id
+          AND gi.status = 'pending'
+          AND lower(trim(gi.invitedemail)) = v_email
+      ) THEN
+        INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+        VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+      END IF;
+    ELSE
+      INSERT INTO public."expensepayers" (expenseId, userId, email, amountPaid)
+      VALUES (v_expense_id, v_paid_by::uuid, NULL, v_expense_amount);
+    END IF;
   END IF;
 
   -- Insert splits and participants from participants array
@@ -611,16 +708,37 @@ BEGIN
     SELECT value
     FROM jsonb_array_elements(COALESCE(payload->'participants', '[]'::jsonb))
   LOOP
-    INSERT INTO public."expensesplits" (expenseId, userId, amountOwed, percent, shares)
-    VALUES (
-      v_expense_id,
-      (v_participant->>'user_id')::uuid,
-      COALESCE((v_participant->>'amount_owed')::numeric, 0),
-      NULL,
-      NULL
-    );
-    INSERT INTO public."expenseparticipants" (expenseId, userId)
-    VALUES (v_expense_id, (v_participant->>'user_id')::uuid);
+    v_email := NULLIF(lower(trim(v_participant->>'email')), '');
+    IF v_email IS NOT NULL THEN
+      INSERT INTO public."expensesplits" (expenseId, userId, email, amountOwed, percent, shares)
+      VALUES (v_expense_id, NULL, v_email, COALESCE((v_participant->>'amount_owed')::numeric, 0), NULL, NULL);
+      INSERT INTO public."expenseparticipants" (expenseId, userId, email)
+      VALUES (v_expense_id, NULL, v_email);
+
+      IF NOT EXISTS (
+        SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_email
+      ) AND NOT EXISTS (
+        SELECT 1 FROM public.groupinvites gi
+        WHERE gi.groupid = v_group_id
+          AND gi.status = 'pending'
+          AND lower(trim(gi.invitedemail)) = v_email
+      ) THEN
+        INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+        VALUES (v_group_id, auth.uid(), NULL, v_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+      END IF;
+    ELSE
+      INSERT INTO public."expensesplits" (expenseId, userId, email, amountOwed, percent, shares)
+      VALUES (
+        v_expense_id,
+        (v_participant->>'user_id')::uuid,
+        NULL,
+        COALESCE((v_participant->>'amount_owed')::numeric, 0),
+        NULL,
+        NULL
+      );
+      INSERT INTO public."expenseparticipants" (expenseId, userId, email)
+      VALUES (v_expense_id, (v_participant->>'user_id')::uuid, NULL);
+    END IF;
   END LOOP;
 
   RETURN jsonb_build_object(
@@ -1062,18 +1180,82 @@ DECLARE
   image_upload jsonb;
   use_id uuid := (payload->>'id')::uuid;
   use_receipt_url text := NULLIF(trim(payload->>'receiptUrl'), '');
+  v_group_id uuid;
+  v_payer_email text;
+  v_receiver_email text;
+  v_payer_id uuid;
+  v_receiver_id uuid;
 BEGIN
-  INSERT INTO public.settlements (id, groupId, payerId, receiverId, amount, paymentMethodId, receiptUrl)
+  v_group_id := (payload->>'groupId')::uuid;
+  v_payer_email := NULLIF(lower(trim(payload->>'payerEmail')), '');
+  v_receiver_email := NULLIF(lower(trim(payload->>'receiverEmail')), '');
+  v_payer_id := NULLIF(payload->>'payerId', '')::uuid;
+  v_receiver_id := NULLIF(payload->>'receiverId', '')::uuid;
+
+  IF v_payer_email IS NOT NULL AND v_payer_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Provide either payerId or payerEmail, not both';
+  END IF;
+  IF v_receiver_email IS NOT NULL AND v_receiver_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Provide either receiverId or receiverEmail, not both';
+  END IF;
+  IF v_payer_email IS NULL AND v_payer_id IS NULL THEN
+    RAISE EXCEPTION 'payerId or payerEmail is required';
+  END IF;
+  IF v_receiver_email IS NULL AND v_receiver_id IS NULL THEN
+    RAISE EXCEPTION 'receiverId or receiverEmail is required';
+  END IF;
+
+  INSERT INTO public.settlements (
+    id,
+    groupId,
+    payerId,
+    payerEmail,
+    receiverId,
+    receiverEmail,
+    amount,
+    paymentMethodId,
+    receiptUrl
+  )
   VALUES (
     COALESCE(use_id, gen_random_uuid()),
-    (payload->>'groupId')::uuid,
-    (payload->>'payerId')::uuid,
-    (payload->>'receiverId')::uuid,
+    v_group_id,
+    v_payer_id,
+    v_payer_email,
+    v_receiver_id,
+    v_receiver_email,
     (payload->>'amount')::numeric,
     (payload->>'paymentMethodId')::uuid,
     use_receipt_url
   )
   RETURNING * INTO new_row;
+
+  IF v_payer_email IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_payer_email
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.groupinvites gi
+      WHERE gi.groupid = v_group_id
+        AND gi.status = 'pending'
+        AND lower(trim(gi.invitedemail)) = v_payer_email
+    ) THEN
+      INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+      VALUES (v_group_id, auth.uid(), NULL, v_payer_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+    END IF;
+  END IF;
+
+  IF v_receiver_email IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.profiles p WHERE lower(trim(p.email)) = v_receiver_email
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.groupinvites gi
+      WHERE gi.groupid = v_group_id
+        AND gi.status = 'pending'
+        AND lower(trim(gi.invitedemail)) = v_receiver_email
+    ) THEN
+      INSERT INTO public.groupinvites (groupid, invitedby, inviteduserid, invitedemail, status, invitetoken)
+      VALUES (v_group_id, auth.uid(), NULL, v_receiver_email, 'pending', encode(gen_random_bytes(32), 'hex'));
+    END IF;
+  END IF;
 
   image_upload := public.getImageUploadPath(
     jsonb_build_object('entityType', 'settlement', 'entityId', new_row.id, 'groupId', new_row.groupId, 'fileName', COALESCE(payload->>'receiptFileName', 'receipt.jpg'))
@@ -2161,6 +2343,8 @@ BEGIN
     JOIN expense_totals et ON et.id = es.expenseid
     JOIN public.expensepayers ep ON ep.expenseid = et.id
     JOIN expense_pay_totals ept ON ept.expenseid = et.id
+    WHERE es.userid IS NOT NULL
+      AND ep.userid IS NOT NULL
   ),
   pair_split_net AS (
     SELECT
@@ -2189,6 +2373,8 @@ BEGIN
     FROM public.settlements s
     WHERE s.groupid = p_group_id
       AND s.deletedat IS NULL
+      AND s.payerid IS NOT NULL
+      AND s.receiverid IS NOT NULL
       AND payerid <> receiverid
     GROUP BY LEAST(payerid, receiverid), GREATEST(payerid, receiverid)
   ),
@@ -2319,13 +2505,15 @@ BEGIN
               'id', p.id,
               'name', p.fullname,
               'avatar', p.avatarurl,
+              'email', COALESCE(p.email, ep.email),
+              'isplaceholder', (ep.userid IS NULL),
               'amountpaid', ep.amountpaid
             )
           ),
           '[]'::jsonb
         )
         FROM public.expensepayers ep
-        JOIN public.profiles p ON p.id = ep.userid
+        LEFT JOIN public.profiles p ON p.id = ep.userid
         WHERE ep.expenseid = e.id
       ) AS payors,
       (
@@ -2335,13 +2523,15 @@ BEGIN
               'id', p.id,
               'name', p.fullname,
               'avatar', p.avatarurl,
+              'email', COALESCE(p.email, es.email),
+              'isplaceholder', (es.userid IS NULL),
               'amountowed', es.amountowed
             )
           ),
           '[]'::jsonb
         )
         FROM public.expensesplits es
-        JOIN public.profiles p ON p.id = es.userid
+        LEFT JOIN public.profiles p ON p.id = es.userid
         WHERE es.expenseid = e.id
       ) AS participants
     FROM public.expenses e
@@ -2369,12 +2559,16 @@ BEGIN
       jsonb_build_object(
         'id', payer.id,
         'name', payer.fullname,
-        'avatar', payer.avatarurl
+        'avatar', payer.avatarurl,
+        'email', COALESCE(payer.email, s.payeremail),
+        'isplaceholder', (s.payerid IS NULL)
       ) AS payer_user,
       jsonb_build_object(
         'id', receiver.id,
         'name', receiver.fullname,
-        'avatar', receiver.avatarurl
+        'avatar', receiver.avatarurl,
+        'email', COALESCE(receiver.email, s.receiveremail),
+        'isplaceholder', (s.receiverid IS NULL)
       ) AS receiver_user
     FROM public.settlements s
     LEFT JOIN public.profiles payer ON payer.id = s.payerid

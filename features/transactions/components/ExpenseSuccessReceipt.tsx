@@ -13,7 +13,8 @@ function getDisplayName(
   currentUserId?: string | null,
 ): string {
   const member = members.find((m) => m.id === userId);
-  const name = member?.fullname?.trim() || "Unknown";
+  const name =
+    member?.fullname?.trim() || member?.email || (userId ? userId : "Unknown");
   if (currentUserId && userId === currentUserId) return "You";
   return name.split(" ")[0] ?? name;
 }
@@ -128,11 +129,15 @@ export function ExpenseSuccessReceipt({
             </div>
             {data.participants.map((p, i) => (
               <div
-                key={`${p.user_id}-${i}`}
+                key={`${p.user_id ?? p.email ?? "unknown"}-${i}`}
                 className="flex justify-between items-center text-[9px]"
               >
                 <span className="truncate max-w-[100px]">
-                  {getDisplayName(p.user_id, members, currentUserId)}
+                  {getDisplayName(
+                    p.user_id ?? p.email ?? "Unknown",
+                    members,
+                    currentUserId,
+                  )}
                 </span>
                 <span className="font-bold">
                   {currencySymbol}

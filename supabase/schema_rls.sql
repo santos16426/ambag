@@ -242,8 +242,12 @@ DROP TABLE IF EXISTS public.expensePayers CASCADE;
 CREATE TABLE IF NOT EXISTS public.expensePayers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expenseId UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
-  userId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amountPaid NUMERIC NOT NULL
+  userId UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  email TEXT,
+  amountPaid NUMERIC NOT NULL,
+  CONSTRAINT chkExpensePayersUserXorEmail CHECK (
+    (userId IS NOT NULL) <> (email IS NOT NULL AND length(trim(email)) > 0)
+  )
 );
 
 ALTER TABLE expensePayers ENABLE ROW LEVEL SECURITY;
@@ -307,7 +311,11 @@ DROP TABLE IF EXISTS public.expenseParticipants CASCADE;
 CREATE TABLE IF NOT EXISTS public.expenseParticipants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expenseId UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
-  userId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE
+  userId UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  email TEXT,
+  CONSTRAINT chkExpenseParticipantsUserXorEmail CHECK (
+    (userId IS NOT NULL) <> (email IS NOT NULL AND length(trim(email)) > 0)
+  )
 );
 
 ALTER TABLE expenseParticipants ENABLE ROW LEVEL SECURITY;
@@ -374,10 +382,14 @@ DROP TABLE IF EXISTS public.expenseSplits CASCADE;
 CREATE TABLE IF NOT EXISTS public.expenseSplits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   expenseId UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
-  userId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  userId UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  email TEXT,
   amountOwed NUMERIC,
   percent NUMERIC,
-  shares NUMERIC
+  shares NUMERIC,
+  CONSTRAINT chkExpenseSplitsUserXorEmail CHECK (
+    (userId IS NOT NULL) <> (email IS NOT NULL AND length(trim(email)) > 0)
+  )
 );
 
 ALTER TABLE expenseSplits ENABLE ROW LEVEL SECURITY;
@@ -500,13 +512,21 @@ DROP TABLE IF EXISTS public.settlements CASCADE;
 CREATE TABLE IF NOT EXISTS public.settlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   groupId UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
-  payerId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  receiverId UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  payerId UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  payerEmail TEXT,
+  receiverId UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  receiverEmail TEXT,
   amount NUMERIC NOT NULL,
   paymentMethodId UUID REFERENCES public.paymentMethods(id) ON DELETE SET NULL,
   receiptUrl TEXT,
   createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deletedAt TIMESTAMPTZ
+  deletedAt TIMESTAMPTZ,
+  CONSTRAINT chkSettlementsPayerXorEmail CHECK (
+    (payerId IS NOT NULL) <> (payerEmail IS NOT NULL AND length(trim(payerEmail)) > 0)
+  ),
+  CONSTRAINT chkSettlementsReceiverXorEmail CHECK (
+    (receiverId IS NOT NULL) <> (receiverEmail IS NOT NULL AND length(trim(receiverEmail)) > 0)
+  )
 );
 
 ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
@@ -911,14 +931,17 @@ CREATE INDEX IF NOT EXISTS idxExpensesCreatedAt ON public.expenses(createdAt DES
 -- Expense payers
 CREATE INDEX IF NOT EXISTS idxExpensePayersExpenseId ON public.expensePayers(expenseId);
 CREATE INDEX IF NOT EXISTS idxExpensePayersUserId ON public.expensePayers(userId);
+CREATE INDEX IF NOT EXISTS idxExpensePayersEmailLower ON public.expensePayers ((lower(email))) WHERE userId IS NULL AND email IS NOT NULL;
 
 -- Expense participants
 CREATE INDEX IF NOT EXISTS idxExpenseParticipantsExpenseId ON public.expenseParticipants(expenseId);
 CREATE INDEX IF NOT EXISTS idxExpenseParticipantsUserId ON public.expenseParticipants(userId);
+CREATE INDEX IF NOT EXISTS idxExpenseParticipantsEmailLower ON public.expenseParticipants ((lower(email))) WHERE userId IS NULL AND email IS NOT NULL;
 
 -- Expense splits
 CREATE INDEX IF NOT EXISTS idxExpenseSplitsExpenseId ON public.expenseSplits(expenseId);
 CREATE INDEX IF NOT EXISTS idxExpenseSplitsUserId ON public.expenseSplits(userId);
+CREATE INDEX IF NOT EXISTS idxExpenseSplitsEmailLower ON public.expenseSplits ((lower(email))) WHERE userId IS NULL AND email IS NOT NULL;
 
 -- Payment methods
 CREATE INDEX IF NOT EXISTS idxPaymentMethodsUserId ON public.paymentMethods(userId);
@@ -927,6 +950,8 @@ CREATE INDEX IF NOT EXISTS idxPaymentMethodsUserId ON public.paymentMethods(user
 CREATE INDEX IF NOT EXISTS idxSettlementsGroupId ON public.settlements(groupId);
 CREATE INDEX IF NOT EXISTS idxSettlementsPayerId ON public.settlements(payerId);
 CREATE INDEX IF NOT EXISTS idxSettlementsReceiverId ON public.settlements(receiverId);
+CREATE INDEX IF NOT EXISTS idxSettlementsPayerEmailLower ON public.settlements ((lower(payerEmail))) WHERE payerId IS NULL AND payerEmail IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idxSettlementsReceiverEmailLower ON public.settlements ((lower(receiverEmail))) WHERE receiverId IS NULL AND receiverEmail IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idxSettlementsCreatedAt ON public.settlements(createdAt DESC);
 
 -- Notifications
@@ -1001,6 +1026,7 @@ AS $$
 DECLARE
   display_name TEXT;
   avatar_url TEXT;
+  v_email TEXT;
 BEGIN
   -- Derive a reasonable display name for both email/password and OAuth (Google) signups.
   display_name := COALESCE(
@@ -1049,6 +1075,42 @@ BEGIN
     AND NEW.email IS NOT NULL
     AND trim(NEW.email) <> ''
     AND lower(trim(invitedemail)) = lower(trim(NEW.email));
+
+  -- Claim any placeholder-by-email transaction rows for this email.
+  v_email := NULLIF(lower(trim(NEW.email)), '');
+  IF v_email IS NOT NULL THEN
+    -- Expense-related placeholders
+    UPDATE public.expensepayers
+    SET userid = NEW.id, email = NULL
+    WHERE userid IS NULL
+      AND email IS NOT NULL
+      AND lower(trim(email)) = v_email;
+
+    UPDATE public.expenseparticipants
+    SET userid = NEW.id, email = NULL
+    WHERE userid IS NULL
+      AND email IS NOT NULL
+      AND lower(trim(email)) = v_email;
+
+    UPDATE public.expensesplits
+    SET userid = NEW.id, email = NULL
+    WHERE userid IS NULL
+      AND email IS NOT NULL
+      AND lower(trim(email)) = v_email;
+
+    -- Settlement placeholders (both sides)
+    UPDATE public.settlements
+    SET payerid = NEW.id, payeremail = NULL
+    WHERE payerid IS NULL
+      AND payeremail IS NOT NULL
+      AND lower(trim(payeremail)) = v_email;
+
+    UPDATE public.settlements
+    SET receiverid = NEW.id, receiveremail = NULL
+    WHERE receiverid IS NULL
+      AND receiveremail IS NOT NULL
+      AND lower(trim(receiveremail)) = v_email;
+  END IF;
 
   RETURN NEW;
 END;

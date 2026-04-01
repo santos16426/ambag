@@ -25,7 +25,7 @@ export interface SettlementFormMember {
 }
 
 function memberToTransactionUser(m: SettlementFormMember): TransactionUser {
-  return { id: m.id, name: m.fullname, avatar: null };
+  return { id: m.id, name: m.fullname, avatar: null, email: m.email };
 }
 
 interface SettlementFormProps {
@@ -79,8 +79,16 @@ export function SettlementForm({
 
     if (editingSettlement) {
       queueMicrotask(() => {
-        setFromUser(editingSettlement.payerid);
-        setToUser(editingSettlement.receiverid);
+        setFromUser(
+          editingSettlement.payerid ??
+            editingSettlement.payer?.email ??
+            defaultFrom,
+        );
+        setToUser(
+          editingSettlement.receiverid ??
+            editingSettlement.receiver?.email ??
+            defaultTo,
+        );
         setAmount(editingSettlement.amount.toString());
       });
       return;
@@ -236,8 +244,8 @@ export function SettlementForm({
       createdat: row.createdat,
       date: settledAt,
       receipturl: row.receipturl ?? null,
-      payerid: row.payerid,
-      receiverid: row.receiverid,
+      payerid: row.payerid ?? null,
+      receiverid: row.receiverid ?? null,
       payer: fromMember ? memberToTransactionUser(fromMember) : null,
       receiver: toMember ? memberToTransactionUser(toMember) : null,
     };

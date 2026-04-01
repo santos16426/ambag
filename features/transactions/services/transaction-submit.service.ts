@@ -19,8 +19,10 @@ export interface RawExpenseRow {
 export interface RawSettlementRow {
   id: string;
   groupid: string;
-  payerid: string;
-  receiverid: string;
+  payerid: string | null;
+  payeremail?: string | null;
+  receiverid: string | null;
+  receiveremail?: string | null;
   amount: number;
   paymentmethodid: string | null;
   receipturl: string | null;
@@ -40,7 +42,9 @@ export interface ExpenseUpdatePayload extends ExpenseSubmitPayload {
 
 export interface SettlementSubmitPayload {
   groupId: string;
+  /** UUID user id OR placeholder email (normalized later). */
   payerId: string;
+  /** UUID user id OR placeholder email (normalized later). */
   receiverId: string;
   amount: number;
   receiptUrl?: string | null;
@@ -215,11 +219,18 @@ export async function submitSettlement(
 ): Promise<SubmitSettlementResult> {
   const supabase = createClient();
 
+  const payerIsEmail = payload.payerId.includes("@");
+  const receiverIsEmail = payload.receiverId.includes("@");
+
   const { data, error } = await supabase.rpc("createsettlement", {
     payload: {
       groupId: payload.groupId,
-      payerId: payload.payerId,
-      receiverId: payload.receiverId,
+      payerId: payerIsEmail ? null : payload.payerId,
+      payerEmail: payerIsEmail ? payload.payerId.toLowerCase().trim() : null,
+      receiverId: receiverIsEmail ? null : payload.receiverId,
+      receiverEmail: receiverIsEmail
+        ? payload.receiverId.toLowerCase().trim()
+        : null,
       amount: payload.amount,
       receiptUrl: payload.receiptUrl ?? null,
       paymentMethodId: payload.paymentMethodId ?? null,

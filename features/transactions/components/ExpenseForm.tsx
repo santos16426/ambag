@@ -272,7 +272,7 @@ export function ExpenseForm({
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <div className="flex flex-col lg:flex-row min-h-0">
                       {/* Left: expense details + who paid */}
-                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-8 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6">
+                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-8 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6 max-w-2/5">
                         {/* <div>
                           <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">
                             Receipt (optional)

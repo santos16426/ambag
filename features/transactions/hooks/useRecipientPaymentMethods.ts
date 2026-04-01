@@ -28,7 +28,8 @@ export function useRecipientPaymentMethods(
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!recipientId) {
+    const isUuid = !!recipientId && /^[0-9a-f-]{36}$/i.test(recipientId);
+    if (!recipientId || !isUuid) {
       setMethods([]);
       setSelectedMethodId("");
       return;

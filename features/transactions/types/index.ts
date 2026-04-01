@@ -1,9 +1,11 @@
 export type TransactionItemType = "expense" | "settlement";
 
 export interface TransactionUser {
-  id: string;
+  id: string | null;
   name: string | null;
   avatar: string | null;
+  email?: string | null;
+  isplaceholder?: boolean | null;
   amountPaid?: number | null;
   amountpaid?: number | null;
   amountOwed?: number | null;
@@ -45,8 +47,8 @@ export interface TransactionItemSettlement extends TransactionItemBase {
   createdby?: null;
   payors?: null;
   participants?: null;
-  payerid: string;
-  receiverid: string;
+  payerid: string | null;
+  receiverid: string | null;
   payer: TransactionUser | null;
   receiver: TransactionUser | null;
 }

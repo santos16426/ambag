@@ -4,6 +4,7 @@ export interface GroupSummaryUserDetails {
   id: string;
   fullName: string | null;
   avatarUrl: string | null;
+  email?: string | null;
 }
 
 export interface GroupSummaryMember {
