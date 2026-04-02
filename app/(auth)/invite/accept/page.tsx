@@ -3,15 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 interface InviteAcceptPageProps {
-  searchParams: {
-    token?: string;
-  };
+  searchParams: Promise<{ token?: string }>;
 }
 
 export default async function InviteAcceptPage({
   searchParams,
 }: InviteAcceptPageProps) {
-  const token = searchParams.token;
+  const { token } = await searchParams;
 
   if (!token) {
     return (
