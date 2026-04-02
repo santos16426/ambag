@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
+import { APP_ICON } from "../lib/pwa/app-icon";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -17,14 +18,15 @@ const THEME_COLOR = "#FDFDFD";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
+  manifest: "/manifest.webmanifest",
   title: {
     default: APP_DEFAULT_TITLE,
     template: APP_TITLE_TEMPLATE,
   },
   description: APP_DESCRIPTION,
   icons: {
-    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    icon: [{ url: APP_ICON.src, type: APP_ICON.type }],
+    apple: [{ url: APP_ICON.src, type: APP_ICON.type }],
   },
   appleWebApp: {
     capable: true,

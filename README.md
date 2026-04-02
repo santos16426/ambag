@@ -2,11 +2,13 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## PWA (install + offline shell)
 
-Ambag ships with a web app manifest ([`app/manifest.ts`](./app/manifest.ts)), iOS-oriented metadata in [`app/layout.tsx`](./app/layout.tsx), and a [Serwist](https://serwist.pages.dev/) service worker ([`app/sw.ts`](./app/sw.ts)) that:
+Ambag ships with a **dynamic** web app manifest ([`app/manifest.webmanifest/route.ts`](./app/manifest.webmanifest/route.ts), shared fields in [`lib/pwa/web-manifest.ts`](./lib/pwa/web-manifest.ts)), iOS-oriented metadata in [`app/layout.tsx`](./app/layout.tsx), and a [Serwist](https://serwist.pages.dev/) service worker ([`app/sw.ts`](./app/sw.ts)) that:
 
 - Precaches the app shell and static assets in production.
 - Uses a document fallback to [`/~offline`](./app/~offline/page.tsx) when navigation fails offline.
 - Applies **NetworkOnly** to same-origin `/api/**` and `*.supabase.co` so authenticated/API traffic is not cached by the SW.
+
+**Install start URL:** Chromium-style “Install app” uses the manifest’s `start_url`. Route-specific layouts set `<link rel="manifest" href="/manifest.webmanifest?start=…">` (e.g. a group page uses `/dashboard/{id}`) so the installed shortcut can open that path. On **group** pages, the layout also passes `name=…` from `getgroupdetails` so the installed app **label** (`name` / `short_name`) defaults to that group’s name (when the user is signed in and allowed to see the group). **Safari “Add to Home Screen”** usually saves the **page you’re on**; behavior varies by OS/browser. To add another route, set `manifest` in that segment’s `generateMetadata` (see dashboard layouts).
 
 **Build note:** `npm run build` runs `next build --webpack` because `@serwist/next` requires webpack. **Do not run `npx next build` or `next build` by itself** on Next.js 16 — the default bundler is Turbopack, which conflicts with Serwist’s webpack hook and fails with the “webpack config and no turbopack config” error, and even workarounds that only silence that error can skip emitting `public/sw.js`. Always use **`npm run build`** (or explicitly `next build --webpack`).
 
@@ -14,7 +16,7 @@ Ambag ships with a web app manifest ([`app/manifest.ts`](./app/manifest.ts)), iO
 
 **PWA / install / offline checks only:** run **`npm run build && npm start`** (or your deployed URL). You do not need a full rebuild for every UI change during feature work.
 
-**Icons:** The manifest currently uses SVG (`/logo.svg`). For best install UX on all platforms, add PNG icons (192×192 and 512×512) and reference them in `app/manifest.ts`.
+**Icons:** The manifest currently uses SVG (`/logo.svg`). For best install UX on all platforms, add PNG icons (192×192 and 512×512) in [`lib/pwa/web-manifest.ts`](./lib/pwa/web-manifest.ts).
 
 ### QA checklist (manual)
 
