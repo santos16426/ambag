@@ -8,19 +8,33 @@ import { useLayoutStore } from "@/store/layoutStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+/** Matches `lg:` breakpoint — sidebar is overlay below this width. */
+const MOBILE_SIDEBAR_MAX_WIDTH_PX = 1024;
+
+function isMobileSidebarViewport(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth < MOBILE_SIDEBAR_MAX_WIDTH_PX;
+}
+
 export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
   const { logout } = useAuthStore();
   const { isSidebarOpen, setIsSidebarOpen } = useLayoutStore();
   const pathname = usePathname();
+
+  function closeSidebarIfMobile() {
+    if (isMobileSidebarViewport()) setIsSidebarOpen(false);
+  }
+
   const handleLogout = async () => {
+    closeSidebarIfMobile();
     await logout();
     router.push("/login");
   };
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 1024;
+      const mobile = window.innerWidth < MOBILE_SIDEBAR_MAX_WIDTH_PX;
       setIsMobile(mobile);
       if (mobile) setIsSidebarOpen(false);
       else setIsSidebarOpen(true);
@@ -49,7 +63,11 @@ export default function Sidebar() {
         <div className="px-4 mb-4">
           <div className="flex items-center gap-4 mb-10 relative">
             <div>
-              <Link href="/dashboard" className="flex items-center gap-2 group">
+              <Link
+                href="/dashboard"
+                onClick={closeSidebarIfMobile}
+                className="flex items-center gap-2 group"
+              >
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500 text-white shadow-orange-200 shadow-lg group-hover:rotate-12 transition-transform">
                   <UtensilsCrossed className="h-5 w-5" />
                 </div>
@@ -80,6 +98,7 @@ export default function Sidebar() {
               key={item.name}
               id={`nav-${item.name}`}
               href={item.href}
+              onClick={closeSidebarIfMobile}
               className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${
                 isActive
                   ? "bg-card shadow-sm font-bold text-primary"

@@ -49,6 +49,45 @@ function mapSavedLineItemsToForm(
   }));
 }
 
+function normalizeParticipantEmail(
+  value: string | null | undefined,
+): string | null {
+  const t = (value ?? "").trim().toLowerCase();
+  return t.length > 0 ? t : null;
+}
+
+/**
+ * Maps feed payor/participant (uuid and/or email) to ExpenseFormMember.id.
+ * Pending invites use normalized email as member id; API rows often have id null + email only.
+ */
+function resolveExpenseFormMemberId(
+  user: TransactionUser,
+  members: ExpenseFormMember[],
+): string | null {
+  if (user.id && members.some((m) => m.id === user.id)) return user.id;
+  const em = normalizeParticipantEmail(user.email);
+  if (em) {
+    const byEmail = members.find(
+      (m) => normalizeParticipantEmail(m.email) === em,
+    );
+    if (byEmail) return byEmail.id;
+  }
+  if (user.id) return user.id;
+  return null;
+}
+
+function participantFormMemberIds(
+  participants: TransactionUser[],
+  members: ExpenseFormMember[],
+): Set<string> {
+  const keys = new Set<string>();
+  for (const p of participants) {
+    const mid = resolveExpenseFormMemberId(p, members);
+    if (mid) keys.add(mid);
+  }
+  return keys;
+}
+
 export interface ExpenseSubmitPayload {
   groupId: string;
   description: string;
@@ -148,14 +187,22 @@ export function useExpenseForm({
     });
 
     if (initialExpense.payors.length <= 1) {
-      const payerId = initialExpense.payors[0]?.id;
+      const payor = initialExpense.payors[0];
+      const resolvedPayerId = payor
+        ? resolveExpenseFormMemberId(payor, members)
+        : null;
       queueMicrotask(() => {
         setPayMode("single");
+        const payerInRoster =
+          resolvedPayerId != null &&
+          members.some((m) => m.id === resolvedPayerId);
         setSinglePayer(
-          payerId ??
-            (currentUserId && members.some((m) => m.id === currentUserId)
-              ? currentUserId
-              : members[0]?.id ?? null),
+          payerInRoster
+            ? resolvedPayerId
+            : payor?.id ??
+                (currentUserId && members.some((m) => m.id === currentUserId)
+                  ? currentUserId
+                  : members[0]?.id ?? null),
         );
         setMultiplePayers({});
       });
@@ -167,7 +214,12 @@ export function useExpenseForm({
         initialExpense.amount / Math.max(initialExpense.payors.length, 1);
       const nextMultiple: Record<string, string> = {};
       initialExpense.payors.forEach((p) => {
-        nextMultiple[p.id ?? ""] = perPayerAmount.toFixed(2);
+        const key =
+          resolveExpenseFormMemberId(p, members) ??
+          p.id ??
+          normalizeParticipantEmail(p.email) ??
+          "";
+        if (key) nextMultiple[key] = perPayerAmount.toFixed(2);
       });
       queueMicrotask(() => {
         setMultiplePayers(nextMultiple);
@@ -175,10 +227,17 @@ export function useExpenseForm({
     }
 
     const participantList = initialExpense.participants ?? [];
-    const participantIds = new Set(participantList.map((p) => p.id));
+    const participantKeys = participantFormMemberIds(
+      participantList,
+      members,
+    );
     queueMicrotask(() => {
       setDeselectedMembers(
-        new Set(members.map((m) => m.id).filter((id) => !participantIds.has(id))),
+        new Set(
+          members
+            .map((m) => m.id)
+            .filter((id) => !participantKeys.has(id)),
+        ),
       );
     });
 
@@ -199,9 +258,11 @@ export function useExpenseForm({
 
       const nextSplits: Record<string, MemberSplitState> = {};
       participantList.forEach((p) => {
+        const mid = resolveExpenseFormMemberId(p, members);
+        if (!mid) return;
         const owed = p.amountOwed ?? p.amountowed ?? 0;
-        nextSplits[p.id ?? ""] = {
-          user_id: p.id ?? "",
+        nextSplits[mid] = {
+          user_id: mid,
           amount_owed: owed,
           percentage:
             total > 0 ? Math.round((owed / total) * 10000) / 100 : 0,
