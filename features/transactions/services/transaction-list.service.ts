@@ -97,8 +97,22 @@ function mapFeedItem(item: RpcFeedItem): TransactionItem {
   return set;
 }
 
+/** Newest first; tie-break on id so order is stable between expense and settlement. */
+export function sortTransactionItemsByRecency(
+  items: TransactionItem[],
+): TransactionItem[] {
+  return [...items].sort((a, b) => {
+    const ta = Date.parse(a.createdat);
+    const tb = Date.parse(b.createdat);
+    const aTime = Number.isNaN(ta) ? 0 : ta;
+    const bTime = Number.isNaN(tb) ? 0 : tb;
+    if (bTime !== aTime) return bTime - aTime;
+    return b.id.localeCompare(a.id);
+  });
+}
+
 /**
- * Fetches the full group transactions feed (expenses + settlements, date-sorted).
+ * Fetches the full group transactions feed (expenses + settlements, merged and sorted by createdat desc).
  * Uses getGroupTransactionsFeed RPC (returns lowercase keys).
  */
 export async function getTransactionList(
@@ -136,15 +150,17 @@ export async function getTransactionList(
 
   const raw = (data as { items?: RpcFeedItem[] } | null)?.items;
   const items: TransactionItem[] = Array.isArray(raw)
-    ? raw.map((item) =>
-        mapFeedItem({
-          ...item,
-          createdby: mapUserAvatar(item.createdby ?? null) ?? null,
-          payors: mapUserArray(item.payors ?? null),
-          participants: mapUserArray(item.participants ?? null),
-          payer: mapUserAvatar(item.payer ?? null),
-          receiver: mapUserAvatar(item.receiver ?? null),
-        }),
+    ? sortTransactionItemsByRecency(
+        raw.map((item) =>
+          mapFeedItem({
+            ...item,
+            createdby: mapUserAvatar(item.createdby ?? null) ?? null,
+            payors: mapUserArray(item.payors ?? null),
+            participants: mapUserArray(item.participants ?? null),
+            payer: mapUserAvatar(item.payer ?? null),
+            receiver: mapUserAvatar(item.receiver ?? null),
+          }),
+        ),
       )
     : [];
 

@@ -2758,7 +2758,7 @@ BEGIN
         'payer', payer_user,
         'receiver', receiver_user
       )
-      ORDER BY sort_date DESC, createdat DESC
+      ORDER BY createdat DESC, id DESC
     ),
     '[]'::jsonb
   )
@@ -2770,7 +2770,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.getGroupTransactionsFeed(uuid) IS
-  'Returns a unified, date-sorted feed of expenses and settlements for a group. Each item has type expense | settlement and details (lowercase keys: groupid, createdat, expensedate, receipturl, splittype, createdby, payors, participants, lineitems for itemized expenses, payerid, receiverid, payer, receiver).';
+  'Returns a unified feed of expenses and settlements for a group, merged and sorted by createdat (newest first). Each item has type expense | settlement; date field is still expenseDate-or-created for expenses and createdAt for settlements for display. Keys: groupid, createdat, expensedate, receipturl, splittype, createdby, payors, participants, lineitems, payerid, receiverid, payer, receiver.';
 
 GRANT EXECUTE ON FUNCTION public.getGroupTransactionsFeed(uuid) TO authenticated;
 

@@ -2,7 +2,10 @@
 
 import { create } from "zustand";
 
-import { getTransactionList } from "../services/transaction-list.service";
+import {
+  getTransactionList,
+  sortTransactionItemsByRecency,
+} from "../services/transaction-list.service";
 import type {
   TransactionItem,
   TransactionItemExpense,
@@ -111,16 +114,18 @@ export const useTransactionListStore = create<TransactionListState>()(
     prependExpenseItem: (item) =>
       set((state) => {
         if (state.groupid !== item.groupid) return state;
+        const without = state.items.filter((i) => i.id !== item.id);
         return {
-          items: [item, ...state.items],
+          items: sortTransactionItemsByRecency([item, ...without]),
         };
       }),
 
     prependSettlementItem: (item) =>
       set((state) => {
         if (state.groupid !== item.groupid) return state;
+        const without = state.items.filter((i) => i.id !== item.id);
         return {
-          items: [item, ...state.items],
+          items: sortTransactionItemsByRecency([item, ...without]),
         };
       }),
 
