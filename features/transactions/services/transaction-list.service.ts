@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { isAbsoluteHttpUrl } from "@/lib/utils";
 
 import type {
   ExpenseLineItem,
@@ -132,6 +133,7 @@ export async function getTransactionList(
     user: TransactionUser | null | undefined,
   ): TransactionUser | null {
     if (!user?.avatar) return user ?? null;
+    if (isAbsoluteHttpUrl(user.avatar)) return user;
     const { data: publicUrl } = supabase.storage
       .from("avatars")
       .getPublicUrl(user.avatar);

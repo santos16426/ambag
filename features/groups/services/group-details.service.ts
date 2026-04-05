@@ -1,5 +1,6 @@
 import { GROUP_IMAGES_BUCKET } from "@/constants/storage";
 import { createClient } from "@/lib/supabase/client";
+import { isAbsoluteHttpUrl } from "@/lib/utils";
 
 import type { Group } from "@/features/dashboard/types";
 
@@ -38,7 +39,7 @@ function mapRpcMemberToMember(
   const avatarPath = m.user?.avatarurl ?? null;
   let avatarurl: string | null = avatarPath;
 
-  if (avatarPath) {
+  if (avatarPath && !isAbsoluteHttpUrl(avatarPath)) {
     const supabase = createClient();
     const { data } = supabase.storage.from("avatars").getPublicUrl(avatarPath);
     avatarurl = data.publicUrl ?? avatarPath;

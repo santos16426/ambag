@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { isAbsoluteHttpUrl } from "@/lib/utils";
 
 import type { AuthMode } from "../schema";
 import type { Profile } from "@/types/profile";
@@ -71,7 +72,7 @@ export async function fetchProfile(
   if (row == null) return { data: null, error: null };
   const profile = row as Profile;
 
-  if (profile.avatarurl) {
+  if (profile.avatarurl && !isAbsoluteHttpUrl(profile.avatarurl)) {
     const { data: publicUrl } = supabase.storage
       .from("avatars")
       .getPublicUrl(profile.avatarurl);

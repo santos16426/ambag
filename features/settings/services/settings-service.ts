@@ -1,5 +1,6 @@
 import { AVATARS_BUCKET, QR_CODES_BUCKET } from "@/constants/storage";
 import { createClient } from "@/lib/supabase/client";
+import { isAbsoluteHttpUrl } from "@/lib/utils";
 import type {
   BankPayoutMethod,
   ProfileSettings,
@@ -50,10 +51,14 @@ export async function fetchSettingsSnapshot(
   };
 
   if (profile.avatarPath) {
-    const { data } = supabase.storage
-      .from(AVATARS_BUCKET)
-      .getPublicUrl(profile.avatarPath);
-    profile.avatarUrl = data.publicUrl ?? null;
+    if (isAbsoluteHttpUrl(profile.avatarPath)) {
+      profile.avatarUrl = profile.avatarPath.trim();
+    } else {
+      const { data } = supabase.storage
+        .from(AVATARS_BUCKET)
+        .getPublicUrl(profile.avatarPath);
+      profile.avatarUrl = data.publicUrl ?? null;
+    }
   }
 
   const payoutMethods: PayoutMethod[] = await Promise.all(
@@ -186,7 +191,11 @@ export async function commitProfileAvatar(
     throw new Error(error.message);
   }
 
-  if (previousPath && previousPath !== newPath) {
+  if (
+    previousPath &&
+    previousPath !== newPath &&
+    !isAbsoluteHttpUrl(previousPath)
+  ) {
     await supabase.storage.from(AVATARS_BUCKET).remove([previousPath]);
   }
 }
