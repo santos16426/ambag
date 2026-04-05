@@ -20,8 +20,33 @@ import {
   type ExpenseUpdatePayload,
 } from "../services/transaction-submit.service";
 
+/** Whole cents for itemized math (avoids float drift vs receipt total). */
+function moneyToCents(value: number): number {
+  return Math.round((value || 0) * 100);
+}
+
 function memberToTransactionUser(m: ExpenseFormMember): TransactionUser {
   return { id: m.id, name: m.fullname, avatar: null, email: m.email };
+}
+
+function mapSavedLineItemsToForm(
+  expense: TransactionItemExpense,
+): ItemizedItem[] {
+  const raw = expense.lineitems;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw.map((row, idx) => ({
+    id:
+      row.id && row.id.length > 0
+        ? row.id
+        : globalThis.crypto?.randomUUID?.() ?? `line-${idx}-${Date.now()}`,
+    name: row.name ?? "",
+    amount: Number(row.amount) || 0,
+    assignedTo: Array.isArray(row.assignedTo)
+      ? row.assignedTo.filter(
+          (uid): uid is string => typeof uid === "string" && uid.length > 0,
+        )
+      : [],
+  }));
 }
 
 export interface ExpenseSubmitPayload {
@@ -33,6 +58,12 @@ export interface ExpenseSubmitPayload {
   paidBy: string | Record<string, string>;
   participants: Array<{ user_id?: string; email?: string; amount_owed: number }>;
   receiptUrl: string | null;
+  /** Sent when splitType is itemized; persisted as expenseItems + participants. */
+  itemized?: Array<{
+    name: string;
+    amount: number;
+    assignedTo: string[];
+  }>;
 }
 
 interface UseExpenseFormParams {
@@ -108,7 +139,11 @@ export function useExpenseForm({
       setSplitType(initialSplitType);
       setError(null);
       setIsSubmitting(false);
-      setItems([]);
+      setItems(
+        initialSplitType === "itemized"
+          ? mapSavedLineItemsToForm(initialExpense)
+          : [],
+      );
       setReimbursementTarget(null);
     });
 
@@ -211,7 +246,8 @@ export function useExpenseForm({
   }, [members, multiplePayers]);
 
   const itemsTotal = useMemo(
-    () => items.reduce((acc, i) => acc + (i.amount || 0), 0),
+    () =>
+      items.reduce((acc, i) => acc + moneyToCents(i.amount || 0) / 100, 0),
     [items],
   );
   const amountNum =
@@ -254,23 +290,34 @@ export function useExpenseForm({
     }
 
     if (splitType === "itemized") {
+      const centsByUser: Record<string, number> = {};
       items.forEach((item) => {
-        if (item.assignedTo.length > 0 && (item.amount || 0) > 0) {
-          const split = item.amount / item.assignedTo.length;
-          item.assignedTo.forEach((uid) => {
-            const cur = next[uid] ?? {
-              user_id: uid,
-              amount_owed: 0,
-              percentage: 0,
-              shares: 1,
-              adjustment: 0,
-            };
-            next[uid] = {
-              ...cur,
-              amount_owed: (cur.amount_owed ?? 0) + split,
-            };
-          });
-        }
+        if (item.assignedTo.length === 0) return;
+        const lineCents = moneyToCents(item.amount || 0);
+        if (lineCents <= 0) return;
+        const n = item.assignedTo.length;
+        const base = Math.floor(lineCents / n);
+        const remainder = lineCents - base * n;
+        const ordered = [...item.assignedTo].sort((a, b) =>
+          a.localeCompare(b),
+        );
+        ordered.forEach((uid, idx) => {
+          const add = base + (idx < remainder ? 1 : 0);
+          centsByUser[uid] = (centsByUser[uid] ?? 0) + add;
+        });
+      });
+      members.forEach((m) => {
+        const cur = next[m.id] ?? {
+          user_id: m.id,
+          amount_owed: 0,
+          percentage: 0,
+          shares: 1,
+          adjustment: 0,
+        };
+        next[m.id] = {
+          ...cur,
+          amount_owed: (centsByUser[m.id] ?? 0) / 100,
+        };
       });
       return next;
     }
@@ -397,13 +444,21 @@ export function useExpenseForm({
   }
 
   function addItemizedItem() {
+    let defaultAssignees: string[] = [];
+    if (effectiveSinglePayer != null) {
+      defaultAssignees = [effectiveSinglePayer];
+    } else if (selectedIds[0] != null) {
+      defaultAssignees = [selectedIds[0]];
+    } else if (members[0]?.id != null) {
+      defaultAssignees = [members[0].id];
+    }
     setItems((prev) => [
       ...prev,
       {
         id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
         name: "",
         amount: 0,
-        assignedTo: Array.from(selectedMembers),
+        assignedTo: defaultAssignees,
       },
     ]);
   }
@@ -469,6 +524,13 @@ export function useExpenseForm({
           : { ...fullMultiplePayers },
       participants: participantsPayload,
       receiptUrl: receiptImage,
+      ...(splitType === "itemized" && {
+        itemized: items.map(({ name, amount, assignedTo }) => ({
+          name,
+          amount,
+          assignedTo,
+        })),
+      }),
     };
 
     const isEditMode = typeof initialExpense !== "undefined" && initialExpense !== null;
@@ -529,6 +591,16 @@ export function useExpenseForm({
       .filter((m) => (memberSplitsComputed[m.id]?.amount_owed ?? 0) > 0)
       .map(memberToTransactionUser);
 
+    const lineitemsSnapshot =
+      splitType === "itemized" && items.length > 0
+        ? items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            amount: it.amount,
+            assignedTo: [...it.assignedTo],
+          }))
+        : undefined;
+
     const item: TransactionItemExpense = {
       type: "expense",
       id: row.id,
@@ -544,6 +616,7 @@ export function useExpenseForm({
       createdby: createdBy ? memberToTransactionUser(createdBy) : null,
       payors,
       participants,
+      ...(lineitemsSnapshot != null ? { lineitems: lineitemsSnapshot } : {}),
     };
 
     console.log("[ExpenseForm] submit", {

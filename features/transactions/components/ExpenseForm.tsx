@@ -272,7 +272,7 @@ export function ExpenseForm({
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <div className="flex flex-col lg:flex-row min-h-0">
                       {/* Left: expense details + who paid */}
-                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-8 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6 max-w-2/5">
+                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-8 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6 max-w-full lg:max-w-2/5">
                         {/* <div>
                           <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">
                             Receipt (optional)
@@ -614,6 +614,45 @@ export function ExpenseForm({
                                   <Plus className="w-4 h-4" />
                                   Add line item
                                 </button>
+                                <p className="text-[9px] text-slate-400 font-medium px-1">
+                                  New lines default to the payer (or first
+                                  member). Tap names on each line to split that
+                                  line across multiple people.
+                                </p>
+                                {members.some(
+                                  (m) =>
+                                    (memberSplits[m.id]?.amount_owed ?? 0) > 0,
+                                ) && (
+                                  <div className="rounded-2xl border border-slate-100 bg-slate-50/90 p-3 space-y-2">
+                                    <p className="text-[9px] font-black uppercase text-slate-400">
+                                      Per person
+                                    </p>
+                                    <ul className="space-y-1">
+                                      {members.map((m) => {
+                                        const owed =
+                                          memberSplits[m.id]?.amount_owed ?? 0;
+                                        if (owed <= 0) return null;
+                                        return (
+                                          <li
+                                            key={m.id}
+                                            className="flex justify-between text-[11px] font-bold text-slate-700"
+                                          >
+                                            <span className="truncate pr-2">
+                                              {m.id === currentUserId
+                                                ? "Me"
+                                                : (m.fullname?.split(" ")[0] ??
+                                                  m.email)}
+                                            </span>
+                                            <span className="shrink-0 text-indigo-600">
+                                              {currencySymbol}
+                                              {owed.toFixed(2)}
+                                            </span>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                )}
                               </div>
                             ) : splitType === "reimbursement" ? (
                               <div className="bg-white p-6 rounded-2xl border border-slate-100 space-y-4">

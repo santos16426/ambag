@@ -437,6 +437,7 @@ $$;
 --   "paidBy": "payerUserId" | { "userId": "123.45", ... },
 --   "participants": [ { "user_id": "uuid", "amount_owed": 12.34 }, ... ],
 --   "receiptUrl": "optional/url"
+--   "itemized": [ { "name": "text", "amount": 12.34, "assignedTo": ["uuid", ...] }, ... ]  (when splitType is itemized)
 -- }
 
 CREATE OR REPLACE FUNCTION public.createExpenseWithSplits(payload jsonb)
@@ -457,6 +458,10 @@ DECLARE
   v_value text;
   v_group_id uuid;
   v_email text;
+  v_item jsonb;
+  v_new_item_id uuid;
+  v_assignee text;
+  v_split_type text;
 BEGIN
   -- Re-map to createExpense's payload (camelCase keys; read both cases from incoming payload)
   v_expense_payload := jsonb_build_object(
@@ -572,6 +577,46 @@ BEGIN
     END IF;
   END LOOP;
 
+  v_split_type := COALESCE(payload->>'splitType', payload->>'splittype');
+  IF v_split_type = 'itemized' THEN
+    FOR v_item IN
+      SELECT value
+      FROM jsonb_array_elements(COALESCE(payload->'itemized', payload->'items', '[]'::jsonb))
+    LOOP
+      IF COALESCE((v_item->>'amount')::numeric, 0) <= 0 THEN
+        CONTINUE;
+      END IF;
+      INSERT INTO public.expenseItems (expenseId, name, amount)
+      VALUES (
+        v_expense_id,
+        COALESCE(NULLIF(trim(v_item->>'name'), ''), 'Item'),
+        COALESCE((v_item->>'amount')::numeric, 0)
+      )
+      RETURNING id INTO v_new_item_id;
+
+      FOR v_assignee IN
+        SELECT x.assignee_id
+        FROM jsonb_array_elements_text(
+          COALESCE(v_item->'assignedTo', v_item->'assigned_to', '[]'::jsonb)
+        ) AS x(assignee_id)
+      LOOP
+        IF v_assignee IS NULL OR length(trim(v_assignee)) = 0 THEN
+          CONTINUE;
+        END IF;
+        IF position('@' in v_assignee) > 0 THEN
+          CONTINUE;
+        END IF;
+        BEGIN
+          INSERT INTO public.expenseItemParticipants (itemId, userId, share)
+          VALUES (v_new_item_id, trim(v_assignee)::uuid, NULL);
+        EXCEPTION
+          WHEN invalid_text_representation THEN
+            NULL;
+        END;
+      END LOOP;
+    END LOOP;
+  END IF;
+
   RETURN jsonb_build_object(
     'expense', v_expense_json,
     'imageUpload', v_created->'imageUpload'
@@ -612,6 +657,10 @@ DECLARE
   v_key text;
   v_value text;
   v_email text;
+  v_item jsonb;
+  v_new_item_id uuid;
+  v_assignee text;
+  v_split_type text;
 BEGIN
   IF v_expense_id IS NULL THEN
     RAISE EXCEPTION 'expenseId is required';
@@ -647,6 +696,7 @@ BEGIN
   DELETE FROM public."expensepayers" WHERE expenseid = v_expense_id;
   DELETE FROM public."expensesplits" WHERE expenseid = v_expense_id;
   DELETE FROM public."expenseparticipants" WHERE expenseid = v_expense_id;
+  DELETE FROM public.expenseItems WHERE expenseid = v_expense_id;
 
   -- Insert payers (single or multiple), same rules as createExpenseWithSplits
   v_paid_by := COALESCE(payload->>'paidBy', payload->>'paidby');
@@ -740,6 +790,46 @@ BEGIN
       VALUES (v_expense_id, (v_participant->>'user_id')::uuid, NULL);
     END IF;
   END LOOP;
+
+  v_split_type := COALESCE(payload->>'splitType', payload->>'splittype');
+  IF v_split_type = 'itemized' THEN
+    FOR v_item IN
+      SELECT value
+      FROM jsonb_array_elements(COALESCE(payload->'itemized', payload->'items', '[]'::jsonb))
+    LOOP
+      IF COALESCE((v_item->>'amount')::numeric, 0) <= 0 THEN
+        CONTINUE;
+      END IF;
+      INSERT INTO public.expenseItems (expenseId, name, amount)
+      VALUES (
+        v_expense_id,
+        COALESCE(NULLIF(trim(v_item->>'name'), ''), 'Item'),
+        COALESCE((v_item->>'amount')::numeric, 0)
+      )
+      RETURNING id INTO v_new_item_id;
+
+      FOR v_assignee IN
+        SELECT x.assignee_id
+        FROM jsonb_array_elements_text(
+          COALESCE(v_item->'assignedTo', v_item->'assigned_to', '[]'::jsonb)
+        ) AS x(assignee_id)
+      LOOP
+        IF v_assignee IS NULL OR length(trim(v_assignee)) = 0 THEN
+          CONTINUE;
+        END IF;
+        IF position('@' in v_assignee) > 0 THEN
+          CONTINUE;
+        END IF;
+        BEGIN
+          INSERT INTO public.expenseItemParticipants (itemId, userId, share)
+          VALUES (v_new_item_id, trim(v_assignee)::uuid, NULL);
+        EXCEPTION
+          WHEN invalid_text_representation THEN
+            NULL;
+        END;
+      END LOOP;
+    END LOOP;
+  END IF;
 
   RETURN jsonb_build_object(
     'expense', v_expense_json,
@@ -2533,7 +2623,30 @@ BEGIN
         FROM public.expensesplits es
         LEFT JOIN public.profiles p ON p.id = es.userid
         WHERE es.expenseid = e.id
-      ) AS participants
+      ) AS participants,
+      (
+        SELECT COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'id', ei.id,
+              'name', ei.name,
+              'amount', ei.amount,
+              'assignedTo', COALESCE(
+                (
+                  SELECT jsonb_agg(eip.userid::text ORDER BY eip.userid)
+                  FROM public.expenseItemParticipants eip
+                  WHERE eip.itemid = ei.id
+                ),
+                '[]'::jsonb
+              )
+            )
+            ORDER BY ei.createdat ASC NULLS LAST, ei.id ASC
+          ),
+          '[]'::jsonb
+        )
+        FROM public.expenseItems ei
+        WHERE ei.expenseid = e.id
+      ) AS line_items
     FROM public.expenses e
     LEFT JOIN public.profiles creator ON creator.id = e.createdby
     WHERE e.groupid = p_group_id
@@ -2554,6 +2667,7 @@ BEGIN
       NULL::jsonb AS created_by_user,
       '[]'::jsonb AS payors,
       '[]'::jsonb AS participants,
+      '[]'::jsonb AS line_items,
       s.payerid AS payer_id,
       s.receiverid AS receiver_id,
       jsonb_build_object(
@@ -2592,6 +2706,7 @@ BEGIN
       created_by_user,
       payors,
       participants,
+      line_items,
       NULL::uuid AS payer_id,
       NULL::uuid AS receiver_id,
       NULL::jsonb AS payer_user,
@@ -2613,6 +2728,7 @@ BEGIN
       created_by_user,
       payors,
       participants,
+      line_items,
       payer_id,
       receiver_id,
       payer_user,
@@ -2636,6 +2752,7 @@ BEGIN
         'createdby', created_by_user,
         'payors', payors,
         'participants', participants,
+        'lineitems', line_items,
         'payerid', payer_id,
         'receiverid', receiver_id,
         'payer', payer_user,
@@ -2653,7 +2770,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.getGroupTransactionsFeed(uuid) IS
-  'Returns a unified, date-sorted feed of expenses and settlements for a group. Each item has type expense | settlement and details (lowercase keys: groupid, createdat, expensedate, receipturl, splittype, createdby, payors, participants, payerid, receiverid, payer, receiver).';
+  'Returns a unified, date-sorted feed of expenses and settlements for a group. Each item has type expense | settlement and details (lowercase keys: groupid, createdat, expensedate, receipturl, splittype, createdby, payors, participants, lineitems for itemized expenses, payerid, receiverid, payer, receiver).';
 
 GRANT EXECUTE ON FUNCTION public.getGroupTransactionsFeed(uuid) TO authenticated;
 

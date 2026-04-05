@@ -12,6 +12,14 @@ export interface TransactionUser {
   amountowed?: number | null;
 }
 
+/** Persisted itemized receipt lines (from feed `lineitems`). */
+export interface ExpenseLineItem {
+  id: string;
+  name: string;
+  amount: number;
+  assignedTo: string[];
+}
+
 /** Common fields for both expense and settlement items. */
 export interface TransactionItemBase {
   type: TransactionItemType;
@@ -32,6 +40,7 @@ export interface TransactionItemExpense extends TransactionItemBase {
   createdby: TransactionUser | null;
   payors: TransactionUser[];
   participants: TransactionUser[];
+  lineitems?: ExpenseLineItem[] | null;
   payerid?: null;
   receiverid?: null;
   payer?: null;

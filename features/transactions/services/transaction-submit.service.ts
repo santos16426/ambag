@@ -74,6 +74,9 @@ export async function submitExpense(
       paidBy: payload.paidBy,
       participants: payload.participants,
       receiptUrl: payload.receiptUrl ?? null,
+      ...(payload.itemized != null && payload.itemized.length > 0
+        ? { itemized: payload.itemized }
+        : {}),
     },
   });
 
@@ -110,6 +113,9 @@ export async function updateExpense(
       paidBy: payload.paidBy,
       participants: payload.participants,
       receiptUrl: payload.receiptUrl ?? null,
+      ...(payload.itemized != null && payload.itemized.length > 0
+        ? { itemized: payload.itemized }
+        : {}),
     },
   });
 

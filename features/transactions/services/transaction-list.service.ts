@@ -1,11 +1,35 @@
 import { createClient } from "@/lib/supabase/client";
 
 import type {
+  ExpenseLineItem,
   TransactionItem,
   TransactionItemExpense,
   TransactionItemSettlement,
   TransactionUser,
 } from "../types";
+
+function mapRpcLineItems(raw: unknown): ExpenseLineItem[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: ExpenseLineItem[] = [];
+  for (const el of raw) {
+    if (!el || typeof el !== "object") continue;
+    const o = el as Record<string, unknown>;
+    const assignedRaw = o.assignedTo ?? o.assignedto;
+    const assignedTo = Array.isArray(assignedRaw)
+      ? assignedRaw.map((x) => String(x)).filter(Boolean)
+      : [];
+    let id = "";
+    if (typeof o.id === "string") id = o.id;
+    else if (o.id != null) id = String(o.id);
+    out.push({
+      id,
+      name: typeof o.name === "string" ? o.name : "",
+      amount: Number(o.amount) || 0,
+      assignedTo,
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
 
 export interface GetTransactionListResult {
   items: TransactionItem[];
@@ -32,6 +56,7 @@ interface RpcFeedItem {
   receiverid?: string | null;
   payer?: TransactionUser | null;
   receiver?: TransactionUser | null;
+  lineitems?: unknown;
 }
 
 function mapFeedItem(item: RpcFeedItem): TransactionItem {
@@ -56,6 +81,7 @@ function mapFeedItem(item: RpcFeedItem): TransactionItem {
       createdby: item.createdby ?? null,
       payors: Array.isArray(item.payors) ? item.payors : [],
       participants: Array.isArray(item.participants) ? item.participants : [],
+      lineitems: mapRpcLineItems(item.lineitems),
     };
     return exp;
   }
