@@ -298,6 +298,34 @@ export function useExpenseForm({
   const effectiveSinglePayer =
     singlePayer ?? currentUserId ?? members[0]?.id ?? null;
 
+  useEffect(() => {
+    if (splitType !== "itemized") return;
+    const selected = new Set(
+      members.map((m) => m.id).filter((id) => !deselectedMembers.has(id)),
+    );
+    const fallback =
+      effectiveSinglePayer != null && selected.has(effectiveSinglePayer)
+        ? effectiveSinglePayer
+        : members.find((m) => selected.has(m.id))?.id ?? null;
+    if (fallback == null) return;
+
+    setItems((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        const filtered = item.assignedTo.filter((uid) => selected.has(uid));
+        const nextAssign = filtered.length > 0 ? filtered : [fallback];
+        const a = [...item.assignedTo].sort().join(",");
+        const b = [...nextAssign].sort().join(",");
+        if (a !== b) {
+          changed = true;
+          return { ...item, assignedTo: nextAssign };
+        }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [splitType, deselectedMembers, members, effectiveSinglePayer]);
+
   const fullMultiplePayers = useMemo(() => {
     const r: Record<string, string> = {};
     members.forEach((m) => {
@@ -694,10 +722,31 @@ export function useExpenseForm({
   function toggleMember(id: string) {
     setDeselectedMembers((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        const selectedCount = members.filter((m) => !prev.has(m.id)).length;
+        if (selectedCount <= 1) return prev;
+        next.add(id);
+      }
       return next;
     });
+  }
+
+  function selectAllSplitMembers() {
+    setDeselectedMembers(new Set());
+  }
+
+  function keepOnlyPayerAsSplitMember() {
+    const keep =
+      effectiveSinglePayer != null &&
+      members.some((m) => m.id === effectiveSinglePayer)
+        ? effectiveSinglePayer
+        : members[0]?.id ?? null;
+    if (keep == null) return;
+    setDeselectedMembers(
+      new Set(members.map((m) => m.id).filter((mid) => mid !== keep)),
+    );
   }
 
   function handleSplitValueChange(
@@ -818,6 +867,8 @@ export function useExpenseForm({
     toggleItemAssignee,
     handleSubmit,
     toggleMember,
+    selectAllSplitMembers,
+    keepOnlyPayerAsSplitMember,
     handleSplitValueChange,
     handleMultiplePayerChange,
     clearReceipt,

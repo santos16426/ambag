@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -32,6 +32,46 @@ import { useExpenseForm } from "../hooks/useExpenseForm";
 import { ExpenseSuccessReceipt } from "./ExpenseSuccessReceipt";
 import { deleteExpense } from "../services/transaction-submit.service";
 import Image from "next/image";
+function SplitParticipantsSelectAllCheckbox({
+  membersLength,
+  selectedCount,
+  selectAllSplitMembers,
+  keepOnlyPayerAsSplitMember,
+}: {
+  membersLength: number;
+  selectedCount: number;
+  selectAllSplitMembers: () => void;
+  keepOnlyPayerAsSplitMember: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const allSelected = membersLength > 0 && selectedCount === membersLength;
+  const isIndeterminate = selectedCount > 0 && selectedCount < membersLength;
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (el) el.indeterminate = isIndeterminate;
+  }, [isIndeterminate]);
+
+  return (
+    <label className="flex cursor-pointer items-center gap-2 shrink-0 select-none">
+      <input
+        ref={inputRef}
+        type="checkbox"
+        checked={allSelected}
+        onChange={(e) =>
+          e.target.checked
+            ? selectAllSplitMembers()
+            : keepOnlyPayerAsSplitMember()
+        }
+        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30"
+      />
+      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
+        Select all
+      </span>
+    </label>
+  );
+}
+
 const SPLIT_METHOD_ICONS: Record<
   SplitType,
   React.ComponentType<{ className?: string }>
@@ -96,6 +136,8 @@ export function ExpenseForm({
     toggleItemAssignee,
     handleSubmit,
     toggleMember,
+    selectAllSplitMembers,
+    keepOnlyPayerAsSplitMember,
     handleSplitValueChange,
     handleMultiplePayerChange,
     // clearReceipt,
@@ -126,6 +168,10 @@ export function ExpenseForm({
     onDelete?.(initialExpense.id);
     resetAndClose();
   }, [initialExpense, onDelete, resetAndClose]);
+
+  const activeSplitMethod = EXPENSE_FORM_SPLIT_METHODS.find(
+    (m) => m.id === splitType,
+  );
 
   return (
     <AnimatePresence>
@@ -272,7 +318,7 @@ export function ExpenseForm({
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <div className="flex flex-col lg:flex-row min-h-0">
                       {/* Left: expense details + who paid */}
-                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-8 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6 max-w-full lg:max-w-2/5">
+                      <div className="border-b lg:border-b-0 lg:border-r border-slate-100 px-4 pt-2 pb-6 lg:pt-8 lg:pb-8 space-y-6 max-w-full lg:max-w-2/5">
                         {/* <div>
                           <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">
                             Receipt (optional)
@@ -337,9 +383,10 @@ export function ExpenseForm({
                             </button>
                           )}
                         </div> */}
+
                         <div>
                           <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">
-                            Description
+                            Expense Title
                           </label>
                           <div className="relative">
                             <Receipt className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -399,9 +446,15 @@ export function ExpenseForm({
 
                         <div className="pt-4 border-t border-slate-100">
                           <div className="flex justify-between items-center mb-3">
-                            <label className="text-[10px] font-bold uppercase text-slate-400">
-                              2. Who paid?
-                            </label>
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-slate-400">
+                                2. Who paid?
+                              </label>
+                              <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug max-w-[min(100%,20rem)]">
+                                Choose who actually paid. Use split payment if
+                                more than one person covered part of the bill.
+                              </p>
+                            </div>
                             <button
                               type="button"
                               onClick={() =>
@@ -484,12 +537,20 @@ export function ExpenseForm({
                       </div>
 
                       {/* Right: split method + member list */}
-                      <div className="flex-1 min-w-0 px-8 flex flex-col pb-6 ">
+                      <div className="flex-1 min-w-0 px-4 flex flex-col pb-6 ">
                         <div className="pt-6 lg:pt-8 border-t lg:border-t-0  border-slate-100 flex flex-col flex-1 min-h-0">
                           <div className="flex justify-between items-center mb-3">
-                            <label className="text-[10px] font-bold uppercase text-slate-400">
-                              3. Split method
-                            </label>
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-slate-400">
+                                3. Split method
+                              </label>
+                              <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug max-w-[min(100%,20rem)]">
+                                You will pick who is included and fine-tune
+                                amounts in the next step; use the balance pill
+                                to see what is left.
+                              </p>
+                            </div>
+
                             <div
                               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${
                                 isBalanced
@@ -509,37 +570,127 @@ export function ExpenseForm({
                               </span>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {EXPENSE_FORM_SPLIT_METHODS.map(({ id, label }) => {
-                              const Icon = SPLIT_METHOD_ICONS[id];
-                              return (
-                                <button
-                                  key={id}
-                                  type="button"
-                                  onClick={() => setSplitType(id)}
-                                  className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all ${
-                                    splitType === id
-                                      ? "bg-slate-900 border-slate-900 text-white"
-                                      : "bg-white border-slate-100 text-slate-500"
-                                  }`}
-                                >
-                                  <Icon className="w-4 h-4" />
-                                  <span className="text-[10px] font-black uppercase">
-                                    {label}
-                                  </span>
-                                </button>
-                              );
-                            })}
+                          <div className="mb-4">
+                            <div className="flex flex-wrap gap-2">
+                              {EXPENSE_FORM_SPLIT_METHODS.map(
+                                ({ id, label }) => {
+                                  const Icon = SPLIT_METHOD_ICONS[id];
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      onClick={() => setSplitType(id)}
+                                      className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all ${
+                                        splitType === id
+                                          ? "bg-slate-900 border-slate-900 text-white"
+                                          : "bg-white border-slate-100 text-slate-500"
+                                      }`}
+                                    >
+                                      <Icon className="h-4 w-4 shrink-0" />
+                                      <span className="text-[10px] font-black uppercase">
+                                        {label}
+                                      </span>
+                                    </button>
+                                  );
+                                },
+                              )}
+                            </div>
+                            {activeSplitMethod ? (
+                              <div className="mt-2 rounded-lg bg-yellow-500/10 p-2">
+                                <div className="flex gap-1.5 text-[12px] font-medium leading-snug text-slate-500">
+                                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p>{activeSplitMethod.description}</p>
+                                    <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-600">
+                                      e.g. {activeSplitMethod.example}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                           <div className="space-y-2 pr-1 mt-4">
                             {splitType === "itemized" ? (
                               <div className="space-y-4">
+                                <div>
+                                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                      <label className="text-[10px] font-bold uppercase text-slate-400 block">
+                                        Split participants
+                                      </label>
+                                      <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug">
+                                        Choose who can be assigned to line
+                                        items. Tap a row to include or exclude.
+                                      </p>
+                                    </div>
+                                    <SplitParticipantsSelectAllCheckbox
+                                      membersLength={members.length}
+                                      selectedCount={selectedMembers.size}
+                                      selectAllSplitMembers={
+                                        selectAllSplitMembers
+                                      }
+                                      keepOnlyPayerAsSplitMember={
+                                        keepOnlyPayerAsSplitMember
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    {members.map((m) => {
+                                      const isSelected = selectedMembers.has(
+                                        m.id,
+                                      );
+                                      const data = memberSplits[m.id];
+                                      return (
+                                        <div
+                                          key={m.id}
+                                          className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all ${
+                                            isSelected
+                                              ? "bg-white border-slate-200"
+                                              : "opacity-50 bg-slate-50 border-transparent"
+                                          }`}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleMember(m.id)}
+                                            className="flex items-center gap-3 min-w-0 text-left"
+                                          >
+                                            <div
+                                              className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 shrink-0 transition-all ${
+                                                isSelected
+                                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                                  : "bg-white border-slate-200"
+                                              }`}
+                                            >
+                                              {isSelected && (
+                                                <Check className="w-3 h-3" />
+                                              )}
+                                            </div>
+                                            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                              {getInitials(m.fullname, m.email)}
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-800 truncate">
+                                              {m.id === currentUserId
+                                                ? "Me"
+                                                : (m.fullname ?? m.email)}
+                                            </span>
+                                          </button>
+                                          <span className="text-[10px] font-black text-indigo-600 shrink-0 tabular-nums">
+                                            {currencySymbol}
+                                            {(data?.amount_owed ?? 0).toFixed(
+                                              2,
+                                            )}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                                 {items.map((item, idx) => (
                                   <div
                                     key={item.id}
-                                    className="bg-white p-4 rounded-2xl border-2 border-slate-100"
+                                    className="relative bg-white p-4 rounded-2xl border-2 border-slate-100"
                                   >
-                                    <div className="flex gap-3 mb-3">
+                                    <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-center">
                                       <input
                                         type="text"
                                         placeholder="e.g. Pasta, Wine"
@@ -549,9 +700,9 @@ export function ExpenseForm({
                                             name: e.target.value,
                                           })
                                         }
-                                        className="flex-1 h-10 px-3 bg-slate-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-indigo-200"
+                                        className="w-full min-w-0 h-10 pl-3 pr-11 bg-slate-50 rounded-xl text-sm font-bold outline-none border border-transparent focus:border-indigo-200 sm:flex-1 sm:pr-3"
                                       />
-                                      <div className="relative w-24">
+                                      <div className="relative w-full shrink-0 sm:w-24">
                                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
                                           {currencySymbol}
                                         </span>
@@ -572,37 +723,43 @@ export function ExpenseForm({
                                       <button
                                         type="button"
                                         onClick={() => removeItem(idx)}
-                                        className="p-2 text-slate-300 hover:text-red-500 rounded-lg"
+                                        className="absolute -top-3 -right-3 bg-white z-10 p-2 text-slate-300 hover:text-red-500 rounded-lg sm:relative sm:top-auto sm:right-auto sm:z-auto"
                                         aria-label="Remove item"
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </button>
                                     </div>
+                                    <p className="text-[10px] font-bold text-slate-400 mb-2">
+                                      The item is/are assigned to:
+                                    </p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {members.map((m) => {
-                                        const active = item.assignedTo.includes(
-                                          m.id,
-                                        );
-                                        return (
-                                          <button
-                                            key={m.id}
-                                            type="button"
-                                            onClick={() =>
-                                              toggleItemAssignee(idx, m.id)
-                                            }
-                                            className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                                              active
-                                                ? "bg-indigo-600 border-indigo-600 text-white"
-                                                : "bg-slate-50 border-transparent text-slate-400"
-                                            }`}
-                                          >
-                                            {m.id === currentUserId
-                                              ? "Me"
-                                              : (m.fullname?.split(" ")[0] ??
-                                                m.email)}
-                                          </button>
-                                        );
-                                      })}
+                                      {members
+                                        .filter((m) =>
+                                          selectedMembers.has(m.id),
+                                        )
+                                        .map((m) => {
+                                          const active =
+                                            item.assignedTo.includes(m.id);
+                                          return (
+                                            <button
+                                              key={m.id}
+                                              type="button"
+                                              onClick={() =>
+                                                toggleItemAssignee(idx, m.id)
+                                              }
+                                              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                                                active
+                                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                                  : "bg-slate-50 border-transparent text-slate-400"
+                                              }`}
+                                            >
+                                              {m.id === currentUserId
+                                                ? "Me"
+                                                : (m.fullname?.split(" ")[0] ??
+                                                  m.email)}
+                                            </button>
+                                          );
+                                        })}
                                     </div>
                                   </div>
                                 ))}
@@ -616,8 +773,9 @@ export function ExpenseForm({
                                 </button>
                                 <p className="text-[9px] text-slate-400 font-medium px-1">
                                   New lines default to the payer (or first
-                                  member). Tap names on each line to split that
-                                  line across multiple people.
+                                  selected participant). Only people included
+                                  above appear on each line—tap to split that
+                                  line between them.
                                 </p>
                                 {members.some(
                                   (m) =>
@@ -686,119 +844,143 @@ export function ExpenseForm({
                                 </div>
                               </div>
                             ) : (
-                              members.map((m) => {
-                                const isSelected = selectedMembers.has(m.id);
-                                const data = memberSplits[m.id];
-                                return (
-                                  <div
-                                    key={m.id}
-                                    className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all ${
-                                      isSelected
-                                        ? "bg-white border-slate-200"
-                                        : "opacity-50 bg-slate-50 border-transparent"
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleMember(m.id)}
-                                      className="flex items-center gap-3 min-w-0"
-                                    >
-                                      <div
-                                        className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 shrink-0 transition-all ${
-                                          isSelected
-                                            ? "bg-indigo-600 border-indigo-600 text-white"
-                                            : "bg-white border-slate-200"
-                                        }`}
-                                      >
-                                        {isSelected && (
-                                          <Check className="w-3 h-3" />
-                                        )}
-                                      </div>
-                                      <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
-                                        {getInitials(m.fullname, m.email)}
-                                      </div>
-                                      <span className="text-sm font-bold text-slate-800 truncate">
-                                        {m.id === currentUserId
-                                          ? "Me"
-                                          : (m.fullname ?? m.email)}
-                                      </span>
-                                    </button>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <span className="text-[10px] font-black text-indigo-600">
-                                        {currencySymbol}
-                                        {(data?.amount_owed ?? 0).toFixed(2)}
-                                      </span>
-                                      {isSelected &&
-                                        splitType !== "equally" && (
-                                          <div className="bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1">
-                                            {splitType === "shares" && (
-                                              <input
-                                                type="number"
-                                                min="0"
-                                                className="w-10 bg-transparent text-right text-[11px] font-black outline-none"
-                                                value={data?.shares ?? 1}
-                                                onChange={(e) =>
-                                                  handleSplitValueChange(
-                                                    m.id,
-                                                    e.target.value,
-                                                    "shares",
-                                                  )
-                                                }
-                                              />
-                                            )}
-                                            {splitType === "percentage" && (
-                                              <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                className="w-10 bg-transparent text-right text-[11px] font-black outline-none"
-                                                value={data?.percentage ?? 0}
-                                                onChange={(e) =>
-                                                  handleSplitValueChange(
-                                                    m.id,
-                                                    e.target.value,
-                                                    "percentage",
-                                                  )
-                                                }
-                                              />
-                                            )}
-                                            {splitType === "exact" && (
-                                              <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                className="w-16 bg-transparent text-right text-[11px] font-black outline-none"
-                                                value={data?.amount_owed ?? 0}
-                                                onChange={(e) =>
-                                                  handleSplitValueChange(
-                                                    m.id,
-                                                    e.target.value,
-                                                    "amount_owed",
-                                                  )
-                                                }
-                                              />
-                                            )}
-                                            {splitType === "adjustments" && (
-                                              <input
-                                                type="number"
-                                                step="0.01"
-                                                className="w-14 bg-transparent text-right text-[11px] font-black outline-none"
-                                                value={data?.adjustment ?? 0}
-                                                onChange={(e) =>
-                                                  handleSplitValueChange(
-                                                    m.id,
-                                                    e.target.value,
-                                                    "adjustment",
-                                                  )
-                                                }
-                                              />
-                                            )}
-                                          </div>
-                                        )}
-                                    </div>
+                              <>
+                                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-400 block">
+                                      4. Split participants
+                                    </label>
+                                    <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug">
+                                      Tap to include or exclude someone from
+                                      this split. Amounts apply only to selected
+                                      people.
+                                    </p>
                                   </div>
-                                );
-                              })
+                                  <SplitParticipantsSelectAllCheckbox
+                                    membersLength={members.length}
+                                    selectedCount={selectedMembers.size}
+                                    selectAllSplitMembers={
+                                      selectAllSplitMembers
+                                    }
+                                    keepOnlyPayerAsSplitMember={
+                                      keepOnlyPayerAsSplitMember
+                                    }
+                                  />
+                                </div>
+                                {members.map((m) => {
+                                  const isSelected = selectedMembers.has(m.id);
+                                  const data = memberSplits[m.id];
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all ${
+                                        isSelected
+                                          ? "bg-white border-slate-200"
+                                          : "opacity-50 bg-slate-50 border-transparent"
+                                      }`}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleMember(m.id)}
+                                        className="flex items-center gap-3 min-w-0"
+                                      >
+                                        <div
+                                          className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 shrink-0 transition-all ${
+                                            isSelected
+                                              ? "bg-indigo-600 border-indigo-600 text-white"
+                                              : "bg-white border-slate-200"
+                                          }`}
+                                        >
+                                          {isSelected && (
+                                            <Check className="w-3 h-3" />
+                                          )}
+                                        </div>
+                                        <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                          {getInitials(m.fullname, m.email)}
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-800 truncate">
+                                          {m.id === currentUserId
+                                            ? "Me"
+                                            : (m.fullname ?? m.email)}
+                                        </span>
+                                      </button>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[10px] font-black text-indigo-600">
+                                          {currencySymbol}
+                                          {(data?.amount_owed ?? 0).toFixed(2)}
+                                        </span>
+                                        {isSelected &&
+                                          splitType !== "equally" && (
+                                            <div className="bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1">
+                                              {splitType === "shares" && (
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  className="w-10 bg-transparent text-right text-[11px] font-black outline-none"
+                                                  value={data?.shares ?? 1}
+                                                  onChange={(e) =>
+                                                    handleSplitValueChange(
+                                                      m.id,
+                                                      e.target.value,
+                                                      "shares",
+                                                    )
+                                                  }
+                                                />
+                                              )}
+                                              {splitType === "percentage" && (
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  max="100"
+                                                  className="w-10 bg-transparent text-right text-[11px] font-black outline-none"
+                                                  value={data?.percentage ?? 0}
+                                                  onChange={(e) =>
+                                                    handleSplitValueChange(
+                                                      m.id,
+                                                      e.target.value,
+                                                      "percentage",
+                                                    )
+                                                  }
+                                                />
+                                              )}
+                                              {splitType === "exact" && (
+                                                <input
+                                                  type="number"
+                                                  step="0.01"
+                                                  min="0"
+                                                  className="w-16 bg-transparent text-right text-[11px] font-black outline-none"
+                                                  value={data?.amount_owed ?? 0}
+                                                  onChange={(e) =>
+                                                    handleSplitValueChange(
+                                                      m.id,
+                                                      e.target.value,
+                                                      "amount_owed",
+                                                    )
+                                                  }
+                                                />
+                                              )}
+                                              {splitType === "adjustments" && (
+                                                <input
+                                                  type="number"
+                                                  step="0.01"
+                                                  className="w-14 bg-transparent text-right text-[11px] font-black outline-none"
+                                                  value={data?.adjustment ?? 0}
+                                                  onChange={(e) =>
+                                                    handleSplitValueChange(
+                                                      m.id,
+                                                      e.target.value,
+                                                      "adjustment",
+                                                    )
+                                                  }
+                                                />
+                                              )}
+                                            </div>
+                                          )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </>
                             )}
                           </div>
                         </div>
