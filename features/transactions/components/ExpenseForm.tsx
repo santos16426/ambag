@@ -612,79 +612,6 @@ export function ExpenseForm({
                           <div className="space-y-2 pr-1 mt-4">
                             {splitType === "itemized" ? (
                               <div className="space-y-4">
-                                <div>
-                                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                      <label className="text-[10px] font-bold uppercase text-slate-400 block">
-                                        Split participants
-                                      </label>
-                                      <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug">
-                                        Choose who can be assigned to line
-                                        items. Tap a row to include or exclude.
-                                      </p>
-                                    </div>
-                                    <SplitParticipantsSelectAllCheckbox
-                                      membersLength={members.length}
-                                      selectedCount={selectedMembers.size}
-                                      selectAllSplitMembers={
-                                        selectAllSplitMembers
-                                      }
-                                      keepOnlyPayerAsSplitMember={
-                                        keepOnlyPayerAsSplitMember
-                                      }
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    {members.map((m) => {
-                                      const isSelected = selectedMembers.has(
-                                        m.id,
-                                      );
-                                      const data = memberSplits[m.id];
-                                      return (
-                                        <div
-                                          key={m.id}
-                                          className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all ${
-                                            isSelected
-                                              ? "bg-white border-slate-200"
-                                              : "opacity-50 bg-slate-50 border-transparent"
-                                          }`}
-                                        >
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleMember(m.id)}
-                                            className="flex items-center gap-3 min-w-0 text-left"
-                                          >
-                                            <div
-                                              className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 shrink-0 transition-all ${
-                                                isSelected
-                                                  ? "bg-indigo-600 border-indigo-600 text-white"
-                                                  : "bg-white border-slate-200"
-                                              }`}
-                                            >
-                                              {isSelected && (
-                                                <Check className="w-3 h-3" />
-                                              )}
-                                            </div>
-                                            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
-                                              {getInitials(m.fullname, m.email)}
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800 truncate">
-                                              {m.id === currentUserId
-                                                ? "Me"
-                                                : (m.fullname ?? m.email)}
-                                            </span>
-                                          </button>
-                                          <span className="text-[10px] font-black text-indigo-600 shrink-0 tabular-nums">
-                                            {currencySymbol}
-                                            {(data?.amount_owed ?? 0).toFixed(
-                                              2,
-                                            )}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
                                 {items.map((item, idx) => (
                                   <div
                                     key={item.id}
@@ -733,33 +660,29 @@ export function ExpenseForm({
                                       The item is/are assigned to:
                                     </p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {members
-                                        .filter((m) =>
-                                          selectedMembers.has(m.id),
-                                        )
-                                        .map((m) => {
-                                          const active =
-                                            item.assignedTo.includes(m.id);
-                                          return (
-                                            <button
-                                              key={m.id}
-                                              type="button"
-                                              onClick={() =>
-                                                toggleItemAssignee(idx, m.id)
-                                              }
-                                              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                                                active
-                                                  ? "bg-indigo-600 border-indigo-600 text-white"
-                                                  : "bg-slate-50 border-transparent text-slate-400"
-                                              }`}
-                                            >
-                                              {m.id === currentUserId
-                                                ? "Me"
-                                                : (m.fullname?.split(" ")[0] ??
-                                                  m.email)}
-                                            </button>
-                                          );
-                                        })}
+                                      {members.map((m) => {
+                                        const active =
+                                          item.assignedTo.includes(m.id);
+                                        return (
+                                          <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() =>
+                                              toggleItemAssignee(idx, m.id)
+                                            }
+                                            className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                                              active
+                                                ? "bg-indigo-600 border-indigo-600 text-white"
+                                                : "bg-slate-50 border-transparent text-slate-400"
+                                            }`}
+                                          >
+                                            {m.id === currentUserId
+                                              ? "Me"
+                                              : (m.fullname?.split(" ")[0] ??
+                                                m.email)}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 ))}
@@ -773,9 +696,8 @@ export function ExpenseForm({
                                 </button>
                                 <p className="text-[9px] text-slate-400 font-medium px-1">
                                   New lines default to the payer (or first
-                                  selected participant). Only people included
-                                  above appear on each line—tap to split that
-                                  line between them.
+                                  member). Tap names on each line to split that
+                                  line across whoever shared it.
                                 </p>
                                 {members.some(
                                   (m) =>

@@ -145,6 +145,14 @@ export function useExpenseForm({
   const [deselectedMembers, setDeselectedMembers] = useState<Set<string>>(
     () => new Set(),
   );
+  /** Member ids whose % was typed by the user; everyone else shares the remainder equally. */
+  const [percentageManualIds, setPercentageManualIds] = useState<
+    Set<string>
+  >(() => new Set());
+  /** Member ids whose exact amount was typed; everyone else shares the remainder equally (cents-safe). */
+  const [exactManualIds, setExactManualIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successDescription, setSuccessDescription] = useState("");
@@ -160,6 +168,30 @@ export function useExpenseForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currencySymbol = EXPENSE_FORM_CURRENCY.symbol;
+
+  const prevSplitTypeForManualRef = useRef<SplitType | null>(null);
+
+  useEffect(() => {
+    const prev = prevSplitTypeForManualRef.current;
+    if (initialExpense == null && prev !== null) {
+      if (splitType === "percentage" && prev !== "percentage") {
+        queueMicrotask(() => {
+          setPercentageManualIds(new Set());
+        });
+      }
+      if (splitType === "exact" && prev !== "exact") {
+        queueMicrotask(() => {
+          setExactManualIds(new Set());
+        });
+      }
+      if (splitType === "itemized" && prev !== "itemized") {
+        queueMicrotask(() => {
+          setDeselectedMembers(new Set());
+        });
+      }
+    }
+    prevSplitTypeForManualRef.current = splitType;
+  }, [splitType, initialExpense]);
 
   useEffect(() => {
     if (!initialExpense) return;
@@ -279,12 +311,56 @@ export function useExpenseForm({
       });
     }
 
+    queueMicrotask(() => {
+      if (selectedCount > 0) {
+        const ids = new Set<string>();
+        participantList.forEach((p) => {
+          const mid = resolveExpenseFormMemberId(p, members);
+          if (mid) ids.add(mid);
+        });
+        if (initialSplitType === "percentage") {
+          setPercentageManualIds(ids);
+        } else {
+          setPercentageManualIds(new Set());
+        }
+        if (initialSplitType === "exact") {
+          setExactManualIds(ids);
+        } else {
+          setExactManualIds(new Set());
+        }
+      } else {
+        setPercentageManualIds(new Set());
+        setExactManualIds(new Set());
+      }
+    });
+
     if (receiptImage) URL.revokeObjectURL(receiptImage);
     queueMicrotask(() => {
       setReceiptImage(null);
       setReceiptImageUrl(initialExpense.receipturl);
     });
   }, [initialExpense, currentUserId, members, receiptImage]);
+
+  useEffect(() => {
+    const prune = (prev: Set<string>) => {
+      const next = new Set(
+        [...prev].filter(
+          (id) =>
+            members.some((m) => m.id === id) && !deselectedMembers.has(id),
+        ),
+      );
+      if (next.size === prev.size && [...prev].every((id) => next.has(id))) {
+        return prev;
+      }
+      return next;
+    };
+    queueMicrotask(() => {
+      setPercentageManualIds(prune);
+    });
+    queueMicrotask(() => {
+      setExactManualIds(prune);
+    });
+  }, [deselectedMembers, members]);
 
   const selectedMembers = useMemo(
     () =>
@@ -309,7 +385,9 @@ export function useExpenseForm({
         : members.find((m) => selected.has(m.id))?.id ?? null;
     if (fallback == null) return;
 
-    setItems((prev) => {
+
+    queueMicrotask(() => {
+      setItems((prev) => {
       let changed = false;
       const next = prev.map((item) => {
         const filtered = item.assignedTo.filter((uid) => selected.has(uid));
@@ -323,6 +401,7 @@ export function useExpenseForm({
         return item;
       });
       return changed ? next : prev;
+      });
     });
   }, [splitType, deselectedMembers, members, effectiveSinglePayer]);
 
@@ -359,6 +438,8 @@ export function useExpenseForm({
       };
       next[m.id] = {
         ...current,
+        // Default shares to 1 when missing so shares-split math matches inputs (value ?? 1 in UI).
+        shares: current.shares ?? 1,
         amount_owed:
           splitType === "exact" ? (current.amount_owed ?? 0) : 0,
       };
@@ -421,14 +502,15 @@ export function useExpenseForm({
       });
     } else if (splitType === "shares") {
       const totalShares = selectedIds.reduce(
-        (sum, id) => sum + (next[id]?.shares ?? 0),
+        (sum, id) => sum + (next[id]?.shares ?? 1),
         0,
       );
       selectedIds.forEach((id) => {
-        const shares = next[id]?.shares ?? 0;
+        const shares = next[id]?.shares ?? 1;
         const current = next[id]!;
         next[id] = {
           ...current,
+          shares,
           amount_owed:
             totalShares > 0 ? (shares / totalShares) * total : 0,
         };
@@ -443,11 +525,60 @@ export function useExpenseForm({
         };
       });
     } else if (splitType === "percentage") {
+      const manual = selectedIds.filter((id) => percentageManualIds.has(id));
+      const auto = selectedIds.filter((id) => !percentageManualIds.has(id));
+      const sumManual = manual.reduce(
+        (s, mid) => s + (next[mid]?.percentage ?? 0),
+        0,
+      );
+      const remainder = 100 - sumManual;
+      const autoPct =
+        auto.length > 0 && remainder > 0 ? remainder / auto.length : 0;
+
       selectedIds.forEach((id) => {
         const current = next[id]!;
+        const pct = percentageManualIds.has(id)
+          ? (current.percentage ?? 0)
+          : auto.length > 0
+            ? autoPct
+            : (current.percentage ?? 0);
         next[id] = {
           ...current,
-          amount_owed: ((current.percentage ?? 0) / 100) * total,
+          percentage: pct,
+          amount_owed: (pct / 100) * total,
+        };
+      });
+    } else if (splitType === "exact") {
+      const manual = selectedIds.filter((id) => exactManualIds.has(id));
+      const auto = selectedIds.filter((id) => !exactManualIds.has(id));
+      const sumManualCents = manual.reduce(
+        (s, mid) => s + moneyToCents(next[mid]?.amount_owed ?? 0),
+        0,
+      );
+      const totalCents = moneyToCents(total);
+      const remainderCents = totalCents - sumManualCents;
+      const autoCentsById: Record<string, number> = {};
+      if (auto.length > 0 && remainderCents > 0) {
+        const n = auto.length;
+        const base = Math.floor(remainderCents / n);
+        const extra = remainderCents - base * n;
+        [...auto].sort((a, b) => a.localeCompare(b)).forEach((uid, idx) => {
+          autoCentsById[uid] = base + (idx < extra ? 1 : 0);
+        });
+      } else if (auto.length > 0) {
+        for (const uid of auto) autoCentsById[uid] = 0;
+      }
+
+      selectedIds.forEach((id) => {
+        const current = next[id]!;
+        const cents = exactManualIds.has(id)
+          ? moneyToCents(current.amount_owed ?? 0)
+          : auto.length > 0
+            ? (autoCentsById[id] ?? 0)
+            : moneyToCents(current.amount_owed ?? 0);
+        next[id] = {
+          ...current,
+          amount_owed: cents / 100,
         };
       });
     }
@@ -460,6 +591,8 @@ export function useExpenseForm({
     items,
     members,
     memberSplits,
+    percentageManualIds,
+    exactManualIds,
   ]);
 
   const currentSplitTotal =
@@ -511,6 +644,8 @@ export function useExpenseForm({
     setSplitType("equally");
     setMemberSplits({});
     setDeselectedMembers(new Set());
+    setPercentageManualIds(new Set());
+    setExactManualIds(new Set());
     setReimbursementTarget(null);
     setItems([]);
     if (receiptImage) URL.revokeObjectURL(receiptImage);
@@ -547,7 +682,7 @@ export function useExpenseForm({
         id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
         name: "",
         amount: 0,
-        assignedTo: defaultAssignees,
+        assignedTo: [],
       },
     ]);
   }
@@ -755,6 +890,12 @@ export function useExpenseForm({
     field: SplitValueField,
   ) {
     const numVal = parseFloat(value) || 0;
+    if (field === "percentage" && splitType === "percentage") {
+      setPercentageManualIds((s) => new Set(s).add(id));
+    }
+    if (field === "amount_owed" && splitType === "exact") {
+      setExactManualIds((s) => new Set(s).add(id));
+    }
     setMemberSplits((prev) => {
       const updated: Record<string, MemberSplitState> = {
         ...prev,
@@ -776,14 +917,14 @@ export function useExpenseForm({
             sum +
             (mid === id
               ? numVal
-              : (updated[mid]?.shares ?? prev[mid]?.shares ?? 0)),
+              : (updated[mid]?.shares ?? prev[mid]?.shares ?? 1)),
           0,
         );
         selectedIds.forEach((mid) => {
           const shares =
             mid === id
               ? numVal
-              : (updated[mid]?.shares ?? prev[mid]?.shares ?? 0);
+              : (updated[mid]?.shares ?? prev[mid]?.shares ?? 1);
           const current = updated[mid]!;
           updated[mid] = {
             ...current,
@@ -793,7 +934,7 @@ export function useExpenseForm({
         });
       } else if (field === "percentage" && splitType === "percentage") {
         const current = updated[id]!;
-        updated[id] = { ...current, amount_owed: (numVal / 100) * total };
+        updated[id] = { ...current, percentage: numVal };
       } else if (field === "adjustment" && splitType === "adjustments") {
         const baseEqual = total / selectedIds.length || 0;
         const current = updated[id]!;
